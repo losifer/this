@@ -101,8 +101,8 @@
       vec2 off = s.zw * uOffDecay + vel * uDt;
 
       vec2 d = (vUv - uMouse) * vec2(uAspect, 1.0);
-      float g = exp(-dot(d, d) / 0.008) * uForce;
-      vel = mix(vel, uMouseVel * 0.6, g * 0.6);
+      float g = exp(-dot(d, d) / 0.012) * uForce;
+      vel = mix(vel, uMouseVel * 0.35, g * 0.45);
 
       float m = length(vel);
       if (m > 2.0) vel *= 2.0 / m;
@@ -111,12 +111,70 @@
     }
   </script>
 
-  <!-- Pass 2: the oil slick, sampled through the pushed-around offsets -->
+  <!-- Pass 2: the mouse trail — stamped along the pointer's path, carried by
+       the flow and fading out. Stored raw (0..1), not encoded. -->
+  <script id="trailfs" type="x-shader/x-fragment">
+    uniform sampler2D uPrev;
+    uniform sampler2D uSim;
+    uniform vec2 uMouse;
+    uniform vec2 uMousePrev;
+    uniform float uForce;
+    uniform float uAspect;
+    uniform float uDt;
+    uniform float uDecay;
+    uniform float uTime;
+    uniform vec2 uTexel;
+
+    float hash(vec2 p) {
+      p = fract(p * vec2(123.34, 456.21));
+      p += dot(p, p + 45.32);
+      return fract(p.x * p.y);
+    }
+    float noise(vec2 p) {
+      vec2 i = floor(p), f = fract(p);
+      vec2 u = f * f * (3.0 - 2.0 * f);
+      return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+                 mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+    }
+
+    void main() {
+      vec2 vel = decode(texture2D(uSim, vUv)).xy;
+      // carried by the flow, plus a slow wobble so it creeps like liquid
+      vec2 asp = vec2(uAspect, 1.0);
+      vec2 q = vUv * asp * 6.0 + uTime * 0.3;
+      vec2 wob = (vec2(noise(q), noise(q + 17.3)) - 0.5) * uTexel * 1.5;
+      vec2 b = vUv - vel * uDt - wob;
+
+      // spread a little each frame so the stroke pools and softens
+      vec2 tx = vec2(uTexel.x, 0.0), ty = vec2(0.0, uTexel.y);
+      float v = (texture2D(uPrev, b).r * 4.0
+               + texture2D(uPrev, b + tx).r + texture2D(uPrev, b - tx).r
+               + texture2D(uPrev, b + ty).r + texture2D(uPrev, b - ty).r) / 8.0;
+      // subtract a little too, so 8-bit fallbacks still fade all the way out
+      v = v * uDecay - 0.0025;
+
+      // distance to the segment the pointer covered this frame, so fast
+      // strokes leave a continuous line rather than dots
+      vec2 a0 = uMousePrev * asp, b0 = uMouse * asp;
+      vec2 p = vUv * asp, ab = b0 - a0;
+      float h = clamp(dot(p - a0, ab) / max(dot(ab, ab), 1e-8), 0.0, 1.0);
+      vec2 d = p - a0 - ab * h;
+      // uneven, blobby edges rather than a clean tube
+      float r = 0.0012 * (0.55 + 0.9 * noise(p * 14.0 + uTime));
+      float stamp = exp(-dot(d, d) / r) * uForce;
+
+      gl_FragColor = vec4(clamp(v + stamp * (1.0 - v), 0.0, 1.0), 0.0, 0.0, 1.0);
+    }
+  </script>
+
+  <!-- Pass 3: the oil slick, sampled through the pushed-around offsets -->
   <script id="oilfs" type="x-shader/x-fragment">
     uniform sampler2D uSim;
+    uniform sampler2D uTrail;
     uniform sampler2D uText;    // r = text, g = soft shadow
     uniform float uAspect;
     uniform float uTime;
+    uniform vec2 uTrailTexel;
 
     float hash(vec2 p) {
       p = fract(p * vec2(123.34, 456.21));
@@ -136,34 +194,70 @@
       return v;
     }
     float oil(vec2 p) {
-      float t = uTime * 0.04;
+      float t = uTime * 0.025;
       vec2 w = vec2(fbm(p + vec2(t, -t * 0.7)), fbm(p + vec2(5.2, 1.3) - t));
       return fbm(p + 2.2 * w);
     }
 
     void main() {
       vec4 s = decode(texture2D(uSim, vUv));
-      vec2 p = (vUv - s.zw) * vec2(uAspect, 1.0) * 1.6;
+
+      // the trail is a thin liquid layer: treat it as a height field and
+      // get its surface normal, which we use to refract what's beneath
+      vec2 ttx = vec2(uTrailTexel.x, 0.0) * 1.5, tty = vec2(0.0, uTrailTexel.y) * 1.5;
+      float tr = texture2D(uTrail, vUv).r;
+      vec2 tg = vec2(texture2D(uTrail, vUv + ttx).r - texture2D(uTrail, vUv - ttx).r,
+                     texture2D(uTrail, vUv + tty).r - texture2D(uTrail, vUv - tty).r);
+      vec3 tn = normalize(vec3(-tg * 2.2, 1.0));
+      vec2 refr = tn.xy * 0.035;
+
+      // larger, softer swirls
+      vec2 p = (vUv - s.zw - refr) * vec2(uAspect, 1.0) * 1.1;
 
       float e = 0.012;
       float o = oil(p), ox = oil(p + vec2(e, 0.0)), oy = oil(p + vec2(0.0, e));
-      vec3 n = normalize(vec3(-(ox - o) / e * 0.12, -(oy - o) / e * 0.12, 1.0));
+      vec3 n = normalize(vec3(-(ox - o) / e * 0.06, -(oy - o) / e * 0.06, 1.0));
 
-      // stirred oil shifts its interference colours
-      float stir = clamp(length(s.xy) * 0.5 + length(s.zw) * 1.5, 0.0, 1.0);
-      float phase = o * 2.6 + (1.0 - n.z) * 3.0 + stir * 0.8;
+      // stirred oil shifts its interference colours, gently
+      float stir = clamp(length(s.xy) * 0.35 + length(s.zw) * 1.0, 0.0, 1.0);
+      float phase = o * 1.8 + (1.0 - n.z) * 2.0 + stir * 0.5;
       vec3 film = 0.5 + 0.5 * cos(6.28318 * (phase + vec3(0.0, 0.33, 0.67)));
-      film = mix(vec3(dot(film, vec3(0.333))), film, 0.75);
+      film = mix(vec3(dot(film, vec3(0.333))), film, 0.4);
 
-      float sheen = smoothstep(0.3, 0.75, o) + stir * 0.4;
+      float sheen = smoothstep(0.35, 0.8, o) + stir * 0.25;
       vec3 L = normalize(vec3(-0.4, 0.5, 0.75));
-      float spec = pow(max(dot(n, normalize(L + vec3(0.0, 0.0, 1.0))), 0.0), 40.0);
+      float spec = pow(max(dot(n, normalize(L + vec3(0.0, 0.0, 1.0))), 0.0), 24.0);
 
       vec3 base = vec3(0.290, 0.173, 0.239);       // #4a2c3d
-      vec3 col = base * (0.5 + 0.25 * n.z) + film * (0.14 + 0.3 * sheen) + spec * 0.3;
+      vec3 col = base * (0.8 + 0.15 * n.z) + film * (0.04 + 0.1 * sheen) + spec * 0.06;
+
+      // mouse trail: a fresh slick of oil — refracts what's beneath (above),
+      // with the oil's own interference colours and glossy shine
+      float slope = 1.0 - tn.z;
+      float body = smoothstep(0.02, 0.45, tr);
+
+      // the oil's surface plus the trail's, so the shine follows both
+      vec3 nc = normalize(vec3(n.xy * 1.5 + tn.xy, 1.0));
+
+      // thin-film colour: the same palette as the oil, but its thickness
+      // (the trail height) and curvature push the bands around
+      float tphase = phase + tr * 1.3 + slope * 2.5;
+      vec3 tfilm = 0.5 + 0.5 * cos(6.28318 * (tphase + vec3(0.0, 0.33, 0.67)));
+      tfilm = mix(vec3(dot(tfilm, vec3(0.333))), tfilm, 0.8);
+
+      vec3 H = normalize(L + vec3(0.0, 0.0, 1.0));
+      float tspec = pow(max(dot(nc, H), 0.0), 40.0);
+      float wet = pow(max(dot(tn, H), 0.0), 90.0) * smoothstep(0.0, 0.06, slope);
+      float tsheen = smoothstep(0.25, 0.75, o) * 0.5 + 0.5;
+
+      vec3 slick = base * (0.55 + 0.25 * nc.z)
+                 + tfilm * (0.16 + 0.26 * tsheen)
+                 + tspec * 0.3 + wet * 0.4;
+      col = mix(col, slick, body);
 
       // the text rides the same flow as the oil, so it smears with it
-      vec2 t = texture2D(uText, vUv - s.zw).rg;
+      // (and bends under the trail, like looking through water)
+      vec2 t = texture2D(uText, vUv - s.zw - refr).rg;
       col = mix(col, col * 0.5, t.g * 0.5);
       col = mix(col, vec3(1.0), t.r);
       gl_FragColor = vec4(col, 1.0);
@@ -200,8 +294,8 @@
       return { p, u };
     }
 
-    let simProg, oilProg;
-    try { simProg = program('sim'); oilProg = program('oilfs'); }
+    let simProg, trailProg, oilProg;
+    try { simProg = program('sim'); trailProg = program('trailfs'); oilProg = program('oilfs'); }
     catch (err) { console.error(err); return; }
 
     const buf = gl.createBuffer();
@@ -239,7 +333,7 @@
       }
     }
 
-    let sims = [], simW = 0, simH = 0, aspect = 1, textReady = false;
+    let sims = [], trails = [], simW = 0, simH = 0, aspect = 1, textReady = false;
 
     const textTex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, textTex);
@@ -305,6 +399,13 @@
         gl.clearColor(zero, zero, zero, zero);
         gl.clear(gl.COLOR_BUFFER_BIT);
       });
+      trails.forEach(t => { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fb); });
+      trails = [makeTarget(simW, simH, texType, filter), makeTarget(simW, simH, texType, filter)];
+      trails.forEach(t => {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb);
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+      });
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       if (textReady) buildText();
     }
@@ -365,16 +466,43 @@
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       sims.reverse();
 
+      // trail step
+      gl.useProgram(trailProg.p);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, trails[1].fb);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, trails[0].tex);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, sims[0].tex);
+      const tu = trailProg.u;
+      gl.uniform1i(tu.uPrev, 0);
+      gl.uniform1i(tu.uSim, 1);
+      gl.uniform1f(tu.uEnc, enc);
+      gl.uniform2f(tu.uMouse, ptr.x, ptr.y);
+      gl.uniform2f(tu.uMousePrev, ptr.px, ptr.py);
+      gl.uniform1f(tu.uForce, ptr.moved ? 1 : 0);
+      gl.uniform1f(tu.uAspect, aspect);
+      gl.uniform1f(tu.uDt, dt);
+      gl.uniform1f(tu.uDecay, Math.pow(0.975, dt * 60));
+      gl.uniform1f(tu.uTime, cur);
+      gl.uniform2f(tu.uTexel, 1 / simW, 1 / simH);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      trails.reverse();
+
       // oil
       gl.useProgram(oilProg.p);
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, canvas.width, canvas.height);
-      gl.bindTexture(gl.TEXTURE_2D, sims[0].tex);
       const ou = oilProg.u;
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, sims[0].tex);
       gl.uniform1i(ou.uSim, 0);
       gl.activeTexture(gl.TEXTURE1);
       gl.bindTexture(gl.TEXTURE_2D, textTex);
       gl.uniform1i(ou.uText, 1);
+      gl.activeTexture(gl.TEXTURE2);
+      gl.bindTexture(gl.TEXTURE_2D, trails[0].tex);
+      gl.uniform1i(ou.uTrail, 2);
+      gl.uniform2f(ou.uTrailTexel, 1 / simW, 1 / simH);
       gl.activeTexture(gl.TEXTURE0);
       gl.uniform1f(ou.uEnc, enc);
       gl.uniform1f(ou.uAspect, aspect);
