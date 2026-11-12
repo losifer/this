@@ -20,17 +20,372 @@
       font-family: "Bebas Neue", sans-serif;
       text-align: center;
       padding: 16px;
+      overflow: hidden;
+      touch-action: none;
     }
     h1 {
+      position: relative;
+      z-index: 1;
       font-weight: 400;
       font-size: clamp(3rem, 14vw, 12rem);
       line-height: 1;
       letter-spacing: 0.02em;
       text-transform: uppercase;
+      text-shadow: 0 2px 30px rgba(20, 8, 16, 0.45);
+      pointer-events: none;
+    }
+    /* Once WebGL draws the text, keep the heading for screen readers only */
+    .gl-on h1 {
+      position: absolute;
+      width: 1px; height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }
+    #oil {
+      position: fixed;
+      inset: 0;
+      width: 100vw;
+      height: 100vh;
+      display: block;
+      z-index: 0;
     }
   </style>
 </head>
 <body>
+  <canvas id="oil" aria-hidden="true"></canvas>
   <h1>This Is Carlos</h1>
+
+  <script id="vs" type="x-shader/x-vertex">
+    attribute vec2 aPos;
+    varying vec2 vUv;
+    void main() {
+      vUv = aPos * 0.5 + 0.5;
+      gl_Position = vec4(aPos, 0.0, 1.0);
+    }
+  </script>
+
+  <!-- Shared helpers: sim state is (velocity.xy, offset.zw). With 8-bit
+       textures we store it biased into 0..1. -->
+  <script id="common" type="x-shader/x-fragment">
+    precision highp float;
+    varying vec2 vUv;
+    uniform float uEnc;
+    const vec4 RANGE = vec4(4.0, 4.0, 0.5, 0.5);
+    vec4 decode(vec4 s) { return uEnc > 0.5 ? (s - 0.5) * 2.0 * RANGE : s; }
+    vec4 encode(vec4 s) { return uEnc > 0.5 ? clamp(s / RANGE * 0.5 + 0.5, 0.0, 1.0) : s; }
+  </script>
+
+  <!-- Pass 1: a cheap fluid-ish field the pointer pushes around -->
+  <script id="sim" type="x-shader/x-fragment">
+    uniform sampler2D uPrev;
+    uniform vec2 uMouse;        // uv, y up
+    uniform vec2 uMouseVel;     // uv per second
+    uniform float uForce;       // 1 when the pointer moved this frame
+    uniform float uAspect;
+    uniform float uDt;
+    uniform float uVelDecay;
+    uniform float uOffDecay;
+    uniform vec2 uTexel;
+
+    vec4 at(vec2 uv) { return decode(texture2D(uPrev, uv)); }
+
+    void main() {
+      vec4 here = at(vUv);
+      // semi-Lagrangian advection: carry the state along its own velocity,
+      // with a little diffusion so smears stay soft and liquid
+      vec2 b = vUv - here.xy * uDt;
+      vec2 tx = vec2(uTexel.x, 0.0), ty = vec2(0.0, uTexel.y);
+      vec4 s = (at(b) * 4.0 + at(b + tx) + at(b - tx) + at(b + ty) + at(b - ty)) / 8.0;
+      vec2 vel = s.xy * uVelDecay;
+      vec2 off = s.zw * uOffDecay + vel * uDt;
+
+      vec2 d = (vUv - uMouse) * vec2(uAspect, 1.0);
+      float g = exp(-dot(d, d) / 0.008) * uForce;
+      vel = mix(vel, uMouseVel * 0.6, g * 0.6);
+
+      float m = length(vel);
+      if (m > 2.0) vel *= 2.0 / m;
+      off = clamp(off, -0.45, 0.45);
+      gl_FragColor = encode(vec4(vel, off));
+    }
+  </script>
+
+  <!-- Pass 2: the oil slick, sampled through the pushed-around offsets -->
+  <script id="oilfs" type="x-shader/x-fragment">
+    uniform sampler2D uSim;
+    uniform sampler2D uText;    // r = text, g = soft shadow
+    uniform float uAspect;
+    uniform float uTime;
+
+    float hash(vec2 p) {
+      p = fract(p * vec2(123.34, 456.21));
+      p += dot(p, p + 45.32);
+      return fract(p.x * p.y);
+    }
+    float noise(vec2 p) {
+      vec2 i = floor(p), f = fract(p);
+      vec2 u = f * f * (3.0 - 2.0 * f);
+      return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+                 mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+    }
+    float fbm(vec2 p) {
+      float v = 0.0, a = 0.5;
+      mat2 m = mat2(1.6, 1.2, -1.2, 1.6);
+      for (int i = 0; i < 4; i++) { v += a * noise(p); p = m * p; a *= 0.5; }
+      return v;
+    }
+    float oil(vec2 p) {
+      float t = uTime * 0.04;
+      vec2 w = vec2(fbm(p + vec2(t, -t * 0.7)), fbm(p + vec2(5.2, 1.3) - t));
+      return fbm(p + 2.2 * w);
+    }
+
+    void main() {
+      vec4 s = decode(texture2D(uSim, vUv));
+      vec2 p = (vUv - s.zw) * vec2(uAspect, 1.0) * 1.6;
+
+      float e = 0.012;
+      float o = oil(p), ox = oil(p + vec2(e, 0.0)), oy = oil(p + vec2(0.0, e));
+      vec3 n = normalize(vec3(-(ox - o) / e * 0.12, -(oy - o) / e * 0.12, 1.0));
+
+      // stirred oil shifts its interference colours
+      float stir = clamp(length(s.xy) * 0.5 + length(s.zw) * 1.5, 0.0, 1.0);
+      float phase = o * 2.6 + (1.0 - n.z) * 3.0 + stir * 0.8;
+      vec3 film = 0.5 + 0.5 * cos(6.28318 * (phase + vec3(0.0, 0.33, 0.67)));
+      film = mix(vec3(dot(film, vec3(0.333))), film, 0.75);
+
+      float sheen = smoothstep(0.3, 0.75, o) + stir * 0.4;
+      vec3 L = normalize(vec3(-0.4, 0.5, 0.75));
+      float spec = pow(max(dot(n, normalize(L + vec3(0.0, 0.0, 1.0))), 0.0), 40.0);
+
+      vec3 base = vec3(0.290, 0.173, 0.239);       // #4a2c3d
+      vec3 col = base * (0.5 + 0.25 * n.z) + film * (0.14 + 0.3 * sheen) + spec * 0.3;
+
+      // the text rides the same flow as the oil, so it smears with it
+      vec2 t = texture2D(uText, vUv - s.zw).rg;
+      col = mix(col, col * 0.5, t.g * 0.5);
+      col = mix(col, vec3(1.0), t.r);
+      gl_FragColor = vec4(col, 1.0);
+    }
+  </script>
+
+  <script>
+  (function () {
+    const canvas = document.getElementById('oil');
+    const gl = canvas.getContext('webgl', { alpha: false, antialias: false });
+    if (!gl) return; // the plain plum background stays
+
+    const src = id => document.getElementById(id).textContent;
+    function program(fsId) {
+      const make = (type, text) => {
+        const sh = gl.createShader(type);
+        gl.shaderSource(sh, text);
+        gl.compileShader(sh);
+        if (!gl.getShaderParameter(sh, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(sh));
+        return sh;
+      };
+      const p = gl.createProgram();
+      gl.attachShader(p, make(gl.VERTEX_SHADER, src('vs')));
+      gl.attachShader(p, make(gl.FRAGMENT_SHADER, src('common') + src(fsId)));
+      gl.bindAttribLocation(p, 0, 'aPos');
+      gl.linkProgram(p);
+      if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+      const u = {};
+      const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
+      for (let i = 0; i < n; i++) {
+        const name = gl.getActiveUniform(p, i).name;
+        u[name] = gl.getUniformLocation(p, name);
+      }
+      return { p, u };
+    }
+
+    let simProg, oilProg;
+    try { simProg = program('sim'); oilProg = program('oilfs'); }
+    catch (err) { console.error(err); return; }
+
+    const buf = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 1, -1, -1, 1, 1, 1]), gl.STATIC_DRAW);
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+    // Prefer half-float sim textures; fall back to 8-bit encoding.
+    const hf = gl.getExtension('OES_texture_half_float');
+    const hfLinear = gl.getExtension('OES_texture_half_float_linear');
+    let texType = gl.UNSIGNED_BYTE, enc = 1, filter = gl.LINEAR;
+
+    function makeTarget(w, h, type, filt) {
+      const tex = gl.createTexture();
+      gl.bindTexture(gl.TEXTURE_2D, tex);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filt);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filt);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, type, null);
+      const fb = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, tex, 0);
+      const ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      return ok ? { tex, fb } : null;
+    }
+
+    if (hf) {
+      const probe = makeTarget(4, 4, hf.HALF_FLOAT_OES, hfLinear ? gl.LINEAR : gl.NEAREST);
+      if (probe) {
+        texType = hf.HALF_FLOAT_OES; enc = 0; filter = hfLinear ? gl.LINEAR : gl.NEAREST;
+        gl.deleteTexture(probe.tex); gl.deleteFramebuffer(probe.fb);
+      }
+    }
+
+    let sims = [], simW = 0, simH = 0, aspect = 1, textReady = false;
+
+    const textTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, textTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 1, 1, 0, gl.RGBA, gl.UNSIGNED_BYTE, new Uint8Array(4));
+
+    // Draw the heading into a full-screen texture: text in red, shadow in green
+    function buildText() {
+      const W = canvas.width, H = canvas.height, k = W / innerWidth;
+      const c = document.createElement('canvas');
+      c.width = W; c.height = H;
+      const x = c.getContext('2d');
+      x.fillStyle = '#000';
+      x.fillRect(0, 0, W, H);
+
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+      const font = Math.max(3 * rem, Math.min(12 * rem, innerWidth * 0.14)) * k;
+      x.font = `400 ${font}px "Bebas Neue", sans-serif`;
+      if ('letterSpacing' in x) x.letterSpacing = `${font * 0.02}px`;
+      x.textAlign = 'center';
+      x.textBaseline = 'alphabetic';
+      const text = document.querySelector('h1').textContent.toUpperCase();
+      const m = x.measureText(text);
+      const asc = m.actualBoundingBoxAscent || font * 0.7;
+      const desc = m.actualBoundingBoxDescent || 0;
+      const y = H / 2 + (asc - desc) / 2;
+
+      // shadow only, via an offscreen draw
+      x.fillStyle = '#0f0';
+      x.shadowColor = '#0f0';
+      x.shadowBlur = 30 * k;
+      x.shadowOffsetX = W * 2;
+      x.shadowOffsetY = 2 * k;
+      x.fillText(text, W / 2 - W * 2, y);
+
+      x.shadowColor = 'transparent';
+      x.globalCompositeOperation = 'lighter';
+      x.fillStyle = '#f00';
+      x.fillText(text, W / 2, y);
+
+      gl.bindTexture(gl.TEXTURE_2D, textTex);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, c);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    }
+
+    function resize() {
+      // a bit above 1x so the text stays crisp without making the oil too costly
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+      canvas.width = Math.round(innerWidth * dpr);
+      canvas.height = Math.round(innerHeight * dpr);
+      aspect = canvas.width / canvas.height;
+      simW = Math.max(32, Math.round(canvas.width / 4));
+      simH = Math.max(32, Math.round(canvas.height / 4));
+      sims.forEach(t => { gl.deleteTexture(t.tex); gl.deleteFramebuffer(t.fb); });
+      sims = [makeTarget(simW, simH, texType, filter), makeTarget(simW, simH, texType, filter)];
+      const zero = enc ? 0.5 : 0;
+      sims.forEach(t => {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, t.fb);
+        gl.clearColor(zero, zero, zero, zero);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+      });
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      if (textReady) buildText();
+    }
+    resize();
+    (document.fonts ? document.fonts.load('400 100px "Bebas Neue"') : Promise.resolve())
+      .catch(() => {})
+      .then(() => {
+        textReady = true;
+        buildText();
+        document.body.classList.add('gl-on');
+      });
+    window.addEventListener('resize', resize);
+
+    // Pointer, in uv with y up
+    const ptr = { x: 0.5, y: 0.5, px: 0.5, py: 0.5, moved: false, seen: false };
+    window.addEventListener('pointermove', e => {
+      const x = e.clientX / innerWidth, y = 1 - e.clientY / innerHeight;
+      if (!ptr.seen) { ptr.px = x; ptr.py = y; ptr.seen = true; }
+      ptr.x = x; ptr.y = y; ptr.moved = true;
+    });
+    window.addEventListener('pointerdown', e => {
+      ptr.px = ptr.x = e.clientX / innerWidth;
+      ptr.py = ptr.y = 1 - e.clientY / innerHeight;
+      ptr.seen = true;
+    });
+
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let last = performance.now(), cur = 0;
+
+    function frame(now) {
+      const dt = Math.min((now - last) / 1000, 1 / 20);
+      last = now;
+      if (!reduceMotion) cur += dt;
+
+      let vx = 0, vy = 0;
+      if (ptr.moved && dt > 0) {
+        vx = (ptr.x - ptr.px) / dt;
+        vy = (ptr.y - ptr.py) / dt;
+      }
+
+      // sim step
+      gl.useProgram(simProg.p);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, sims[1].fb);
+      gl.viewport(0, 0, simW, simH);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, sims[0].tex);
+      const su = simProg.u;
+      gl.uniform1i(su.uPrev, 0);
+      gl.uniform1f(su.uEnc, enc);
+      gl.uniform2f(su.uMouse, ptr.x, ptr.y);
+      gl.uniform2f(su.uMouseVel, vx, vy);
+      gl.uniform1f(su.uForce, ptr.moved ? 1 : 0);
+      gl.uniform1f(su.uAspect, aspect);
+      gl.uniform1f(su.uDt, dt);
+      gl.uniform2f(su.uTexel, 1 / simW, 1 / simH);
+      gl.uniform1f(su.uVelDecay, Math.pow(0.95, dt * 60));
+      gl.uniform1f(su.uOffDecay, Math.pow(0.99, dt * 60));
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      sims.reverse();
+
+      // oil
+      gl.useProgram(oilProg.p);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.bindTexture(gl.TEXTURE_2D, sims[0].tex);
+      const ou = oilProg.u;
+      gl.uniform1i(ou.uSim, 0);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(gl.TEXTURE_2D, textTex);
+      gl.uniform1i(ou.uText, 1);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.uniform1f(ou.uEnc, enc);
+      gl.uniform1f(ou.uAspect, aspect);
+      gl.uniform1f(ou.uTime, cur);
+      gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+      ptr.px = ptr.x; ptr.py = ptr.y; ptr.moved = false;
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  })();
+  </script>
 </body>
 </html>
