@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Oil orb: a plum sphere with iridescent, oily swirls and a wet highlight.
+       The swirls are warped by fractal noise, so the bands marble and braid
+       the way a real oil film does rather than reading as smooth gradients. -->
+  <defs>
+    <radialGradient id="body" cx="38%" cy="32%" r="72%">
+      <stop offset="0" stop-color="#93406a"/>
+      <stop offset="0.45" stop-color="#5f2644"/>
+      <stop offset="1" stop-color="#16070f"/>
+    </radialGradient>
+    <linearGradient id="film-a" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ff5fae"/>
+      <stop offset="0.3" stop-color="#ffb35c"/>
+      <stop offset="0.6" stop-color="#5fffd2"/>
+      <stop offset="1" stop-color="#6a7bff"/>
+    </linearGradient>
+    <linearGradient id="film-b" x1="1" y1="0.1" x2="0" y2="1">
+      <stop offset="0" stop-color="#5fd8ff"/>
+      <stop offset="0.45" stop-color="#c86bff"/>
+      <stop offset="1" stop-color="#ff8a5f"/>
+    </linearGradient>
+    <linearGradient id="film-c" x1="0.2" y1="1" x2="0.9" y2="0">
+      <stop offset="0" stop-color="#7affc8"/>
+      <stop offset="0.55" stop-color="#ffd27a"/>
+      <stop offset="1" stop-color="#ff6fc0"/>
+    </linearGradient>
+    <linearGradient id="film-c2" x1="0.1" y1="0" x2="0.9" y2="1">
+      <stop offset="0" stop-color="#fff1c9"/>
+      <stop offset="0.35" stop-color="#9affdd"/>
+      <stop offset="0.7" stop-color="#ffa8e0"/>
+      <stop offset="1" stop-color="#8fb4ff"/>
+    </linearGradient>
+    <radialGradient id="shade" cx="50%" cy="50%" r="50%">
+      <stop offset="0.65" stop-color="#000" stop-opacity="0"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0.45"/>
+    </radialGradient>
+    <radialGradient id="glint" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#fff8ee" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#fff8ee" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffd9ec" stop-opacity="0.25"/>
+      <stop offset="0.7" stop-color="#ff9fd0" stop-opacity="0"/>
+      <stop offset="1" stop-color="#7fe7ff" stop-opacity="0.45"/>
+    </linearGradient>
+
+    <!-- marble the colour bands with fractal noise, then soften -->
+    <filter id="marble" x="-25%" y="-25%" width="150%" height="150%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.035 0.055" numOctaves="4" seed="17" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="26" xChannelSelector="R" yChannelSelector="G" result="warp"/>
+      <feGaussianBlur in="warp" stdDeviation="1.1"/>
+    </filter>
+    <!-- finer, wispier threads on top -->
+    <filter id="marble-fine" x="-25%" y="-25%" width="150%" height="150%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.09 0.07" numOctaves="3" seed="5" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="12" xChannelSelector="R" yChannelSelector="G" result="warp"/>
+      <feGaussianBlur in="warp" stdDeviation="0.5"/>
+    </filter>
+
+    <!-- the C: warped by noise too, but less, so the letterform survives -->
+    <filter id="marble-c" x="-30%" y="-30%" width="160%" height="160%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.045 0.06" numOctaves="3" seed="23" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="7" xChannelSelector="R" yChannelSelector="G" result="warp"/>
+      <feGaussianBlur in="warp" stdDeviation="0.55"/>
+    </filter>
+
+    <clipPath id="orb"><circle cx="32" cy="32" r="29"/></clipPath>
+  </defs>
+
+  <circle cx="32" cy="32" r="29" fill="url(#body)"/>
+
+  <g clip-path="url(#orb)">
+    <!-- broad iridescent bands, braided by the noise -->
+    <g filter="url(#marble)" style="mix-blend-mode:screen">
+      <path d="M2 40 C 14 24, 28 46, 40 30 S 58 20, 66 32 L 66 46 C 52 36, 44 56, 28 50 S 10 52, 2 48 Z"
+            fill="url(#film-a)" opacity="0.6"/>
+      <path d="M4 24 C 20 10, 34 30, 48 16 S 62 14, 66 20 L 64 30 C 50 28, 40 38, 26 32 S 12 32, 4 32 Z"
+            fill="url(#film-b)" opacity="0.45"/>
+    </g>
+    <!-- wispy threads, warped differently so they cross the bands -->
+    <g filter="url(#marble-fine)" style="mix-blend-mode:screen" opacity="0.4">
+      <path d="M0 34 C 16 30, 24 42, 38 36 S 56 30, 66 38" fill="none" stroke="url(#film-c)" stroke-width="5"/>
+      <path d="M2 52 C 18 44, 30 56, 44 46 S 60 42, 66 48" fill="none" stroke="url(#film-a)" stroke-width="3.5"/>
+      <path d="M6 16 C 18 22, 30 12, 42 20 S 58 24, 66 14" fill="none" stroke="url(#film-b)" stroke-width="3"/>
+    </g>
+    <!-- a C surfacing in the film: same iridescence, oily ragged edges -->
+    <g filter="url(#marble-c)">
+      <path d="M43 21 A 15.5 15.5 0 1 0 43 43" fill="none" stroke="#1a0a12"
+            stroke-width="9.5" stroke-linecap="round" opacity="0.5"/>
+      <g style="mix-blend-mode:screen">
+        <path d="M43 21 A 15.5 15.5 0 1 0 43 43" fill="none" stroke="url(#film-c2)"
+              stroke-width="7" stroke-linecap="round" opacity="0.82"/>
+      </g>
+    </g>
+  </g>
+
+  <!-- edge darkening for depth, and a thin coloured rim -->
+  <circle cx="32" cy="32" r="29" fill="url(#shade)"/>
+  <circle cx="32" cy="32" r="28.5" fill="none" stroke="url(#rim)" stroke-width="1.2"/>
+
+  <!-- wet highlights -->
+  <ellipse cx="23" cy="19" rx="10" ry="6.5" fill="url(#glint)" transform="rotate(-28 23 19)" opacity="0.8"/>
+  <ellipse cx="21.5" cy="17.5" rx="3.2" ry="2" fill="#fffaf2" transform="rotate(-28 21.5 17.5)" opacity="0.95"/>
+</svg>
