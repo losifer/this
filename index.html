@@ -6,13 +6,13 @@
   <title>This Is Carlos</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500&display=swap" rel="stylesheet">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { height: 100%; }
     body {
       background: #4a2c3d;
-      color: #fff;
+      color: #f3e9d7;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -25,7 +25,8 @@
     }
     h1 {
       position: relative;
-      z-index: 1;
+      z-index: 2;
+      transition: opacity 0.5s ease;
       font-weight: 400;
       font-size: clamp(3rem, 14vw, 12rem);
       line-height: 1;
@@ -42,19 +43,192 @@
       clip: rect(0 0 0 0);
       white-space: nowrap;
     }
+    .on-page h1 { opacity: 0; }
+    .nav {
+      position: fixed;
+      top: clamp(16px, 3vw, 32px);
+      right: clamp(16px, 3.5vw, 40px);
+      z-index: 3;
+    }
+    .nav ul {
+      display: flex;
+      gap: clamp(16px, 2.5vw, 36px);
+      list-style: none;
+    }
+    .nav a {
+      position: relative;
+      color: #f3e9d7;
+      text-decoration: none;
+      font-family: "Inter", system-ui, sans-serif;
+      font-weight: 500;
+      font-size: 0.75rem;
+      letter-spacing: 0.01em;
+      opacity: 0.8;
+      text-shadow: 0 1px 12px rgba(20, 8, 16, 0.45);
+      transition: opacity 0.25s ease;
+    }
+    .nav a::after {
+      content: "";
+      position: absolute;
+      left: 0; right: 0; bottom: -2px;
+      height: 1px;
+      background: currentColor;
+      transform: scaleX(0);
+      transform-origin: right;
+      transition: transform 0.3s ease;
+    }
+    .nav a:hover, .nav a:focus-visible, .nav a[aria-current="page"] { opacity: 1; }
+    .nav a:hover::after, .nav a:focus-visible::after, .nav a[aria-current="page"]::after {
+      transform: scaleX(1);
+      transform-origin: left;
+    }
+    .nav a:focus-visible { outline: 1px solid rgba(243, 233, 215, 0.6); outline-offset: 4px; }
     #oil {
       position: fixed;
       inset: 0;
       width: 100vw;
       height: 100vh;
       display: block;
-      z-index: 0;
+      z-index: 1;
+      pointer-events: none;
     }
+
+    /* Inner pages sit beneath the oil canvas, which peels away to reveal them */
+    .page {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      overflow-y: auto;
+      touch-action: pan-y;
+      background: #2a1421;
+      text-align: left;
+      font-family: "Inter", system-ui, sans-serif;
+      padding: clamp(72px, 12vh, 132px) clamp(16px, 3.5vw, 40px) 64px;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.5s ease, visibility 0s linear 0.5s;
+    }
+    .page.is-active {
+      opacity: 1;
+      visibility: visible;
+      transition: opacity 0.5s ease;
+    }
+    /* with WebGL the canvas does the revealing, so the page is just there */
+    .gl-on .page, .gl-on .page.is-active { transition: none; }
+    /* content fades and scales in as the splash peels away, and back out
+       (no delay) as the splash returns */
+    .page-inner {
+      max-width: 960px;
+      opacity: 0;
+      /* hidden state sits lower: rises up on the way in, sinks on the way out */
+      transform: translateY(32px) scale(0.88);
+      transform-origin: 50% 30%;
+      transition: opacity 0.5s ease, transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    /* is-shown is added by JS once the peel has uncovered most of the page */
+    .page.is-shown .page-inner {
+      opacity: 1;
+      transform: none;
+      /* ease out with a slight bounce: overshoots a touch, then settles */
+      transition: opacity 0.6s ease, transform 0.9s cubic-bezier(0.34, 1.3, 0.64, 1);
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .page-inner, .page.is-shown .page-inner { transform: none; transition-duration: 0.01s; transition-delay: 0s; }
+    }
+    .page-head {
+      display: flex;
+      align-items: center;
+      gap: clamp(12px, 2vw, 24px);
+      margin-bottom: clamp(28px, 5vh, 56px);
+    }
+    .back {
+      flex: none;
+      display: grid;
+      place-items: center;
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      color: #f3e9d7;
+      border: 1px solid rgba(243, 233, 215, 0.25);
+      transition: background-color 0.25s ease, border-color 0.25s ease, transform 0.25s ease;
+    }
+    .back:hover, .back:focus-visible {
+      background: rgba(243, 233, 215, 0.08);
+      border-color: rgba(243, 233, 215, 0.6);
+      transform: translateX(-2px);
+    }
+    .back:focus-visible { outline: 1px solid rgba(243, 233, 215, 0.6); outline-offset: 4px; }
+    .page-title {
+      font-family: "Bebas Neue", sans-serif;
+      font-weight: 400;
+      font-size: clamp(2.5rem, 7vw, 5.5rem);
+      line-height: 1;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      outline: none;
+    }
+    .block {
+      border-radius: 16px;
+      background: rgba(243, 233, 215, 0.035);
+      border: 1px solid rgba(243, 233, 215, 0.08);
+      padding: clamp(20px, 3vw, 40px);
+      color: rgba(243, 233, 215, 0.75);
+      font-size: 1rem;
+      line-height: 1.6;
+    }
+    .block p { max-width: 60ch; }
+    .skeleton { margin-top: 24px; display: grid; gap: 12px; }
+    .skeleton span {
+      display: block;
+      height: 10px;
+      border-radius: 5px;
+      background: rgba(243, 233, 215, 0.07);
+    }
+    .skeleton span:nth-child(2) { width: 85%; }
+    .skeleton span:nth-child(3) { width: 60%; }
   </style>
 </head>
 <body>
   <canvas id="oil" aria-hidden="true"></canvas>
+  <nav class="nav" aria-label="Main">
+    <ul>
+      <li><a href="#about">Carlos</a></li>
+      <li><a href="#projects">Projects</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ul>
+  </nav>
   <h1>This Is Carlos</h1>
+
+  <main>
+    <section class="page" id="page-about" data-page="about" aria-labelledby="title-about">
+      <div class="page-inner">
+        <header class="page-head">
+          <a class="back" href="#" aria-label="Back to home">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+          </a>
+          <h2 class="page-title" id="title-about" tabindex="-1">Carlos</h2>
+        </header>
+        <div class="block">
+          <p>Placeholder — a few lines about Carlos will go here.</p>
+          <div class="skeleton" aria-hidden="true"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="page" id="page-projects" data-page="projects" aria-labelledby="title-projects">
+      <div class="page-inner">
+        <header class="page-head">
+          <a class="back" href="#" aria-label="Back to home">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M11 18l-6-6 6-6"/></svg>
+          </a>
+          <h2 class="page-title" id="title-projects" tabindex="-1">Projects</h2>
+        </header>
+        <div class="block">
+          <p>Placeholder — selected projects will go here.</p>
+          <div class="skeleton" aria-hidden="true"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+    </section>
+  </main>
 
   <script id="vs" type="x-shader/x-vertex">
     attribute vec2 aPos;
@@ -175,6 +349,8 @@
     uniform float uAspect;
     uniform float uTime;
     uniform vec2 uTrailTexel;
+    uniform float uReveal;      // 0 = splash fully there, 1 = peeled away
+    uniform vec2 uOrigin;       // uv the peel starts from
 
     float hash(vec2 p) {
       p = fract(p * vec2(123.34, 456.21));
@@ -200,19 +376,37 @@
     }
 
     void main() {
-      vec4 s = decode(texture2D(uSim, vUv));
+      // page transition: the splash melts away from the click point along an
+      // oily, noise-shaped front, warping everything as it goes
+      vec2 asp = vec2(uAspect, 1.0);
+      vec2 uv = vUv;
+      float keep = 1.0, edge = 0.0;
+      vec2 rw = vec2(0.0);
+      if (uReveal > 0.0) {
+        vec2 rq = vUv * asp * 2.2;
+        rw = vec2(fbm(rq + uTime * 0.08), fbm(rq + vec2(4.7, 1.9) - uTime * 0.08)) - 0.5;
+        float dist = length((vUv - uOrigin) * asp) / length(asp);
+        float field = dist * 0.65 + fbm(rq * 1.3 + rw * 2.5) * 0.55;
+        float thr = mix(-0.2, 1.25, uReveal);
+        keep = smoothstep(thr, thr + 0.14, field);
+        edge = 1.0 - abs(keep * 2.0 - 1.0);
+        float k = sin(3.14159 * clamp(uReveal, 0.0, 1.0));
+        uv += rw * (0.05 * k + 0.14 * edge * (1.0 - keep * 0.5));
+      }
+
+      vec4 s = decode(texture2D(uSim, uv));
 
       // the trail is a thin liquid layer: treat it as a height field and
       // get its surface normal, which we use to refract what's beneath
       vec2 ttx = vec2(uTrailTexel.x, 0.0) * 1.5, tty = vec2(0.0, uTrailTexel.y) * 1.5;
-      float tr = texture2D(uTrail, vUv).r;
-      vec2 tg = vec2(texture2D(uTrail, vUv + ttx).r - texture2D(uTrail, vUv - ttx).r,
-                     texture2D(uTrail, vUv + tty).r - texture2D(uTrail, vUv - tty).r);
+      float tr = texture2D(uTrail, uv).r;
+      vec2 tg = vec2(texture2D(uTrail, uv + ttx).r - texture2D(uTrail, uv - ttx).r,
+                     texture2D(uTrail, uv + tty).r - texture2D(uTrail, uv - tty).r);
       vec3 tn = normalize(vec3(-tg * 2.2, 1.0));
       vec2 refr = tn.xy * 0.035;
 
       // larger, softer swirls
-      vec2 p = (vUv - s.zw - refr) * vec2(uAspect, 1.0) * 1.1;
+      vec2 p = (uv - s.zw - refr) * asp * 1.1;
 
       float e = 0.012;
       float o = oil(p), ox = oil(p + vec2(e, 0.0)), oy = oil(p + vec2(0.0, e));
@@ -257,17 +451,25 @@
 
       // the text rides the same flow as the oil, so it smears with it
       // (and bends under the trail, like looking through water)
-      vec2 t = texture2D(uText, vUv - s.zw - refr).rg;
+      vec2 t = texture2D(uText, uv - s.zw - refr).rg;
       col = mix(col, col * 0.5, t.g * 0.5);
-      col = mix(col, vec3(1.0), t.r);
-      gl_FragColor = vec4(col, 1.0);
+      col = mix(col, vec3(0.953, 0.914, 0.843), t.r);   // cream #f3e9d7
+
+      // the melting front gets a bright, oily iridescent rim
+      if (uReveal > 0.0) {
+        vec3 rim = 0.5 + 0.5 * cos(6.28318 * (o * 2.0 + rw.x * 3.0 + edge + vec3(0.0, 0.33, 0.67)));
+        rim = mix(vec3(dot(rim, vec3(0.333))), rim, 0.8);
+        col = mix(col, base * 0.6 + rim * 0.45, edge * 0.85);
+      }
+      gl_FragColor = vec4(col * keep, keep);   // premultiplied
     }
   </script>
 
   <script>
   (function () {
     const canvas = document.getElementById('oil');
-    const gl = canvas.getContext('webgl', { alpha: false, antialias: false });
+    // transparent canvas: the inner pages underneath show through as it peels
+    const gl = canvas.getContext('webgl', { alpha: true, premultipliedAlpha: true, antialias: false });
     if (!gl) return; // the plain plum background stays
 
     const src = id => document.getElementById(id).textContent;
@@ -435,10 +637,37 @@
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     let last = performance.now(), cur = 0;
 
+    // Page transition: tween uReveal between 0 (splash) and 1 (peeled away)
+    const rv = { value: 0, from: 0, to: 0, start: 0, dur: 0, done: null, ox: 0.5, oy: 0.5 };
+    const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+    window.oilFx = {
+      // origin in client px; done fires only if this transition isn't superseded
+      transition(to, origin, done) {
+        if (origin) { rv.ox = origin.x / innerWidth; rv.oy = 1 - origin.y / innerHeight; }
+        rv.from = rv.value; rv.to = to; rv.start = performance.now();
+        rv.dur = reduceMotion ? 0 : 1500 * Math.abs(to - rv.value);
+        rv.done = done || null;
+        if (rv.value === to) { rv.done = null; if (done) done(); }
+        return rv.dur;
+      },
+      set(v) { rv.value = rv.from = rv.to = v; rv.dur = 0; rv.done = null; },
+    };
+    function stepReveal(now) {
+      if (rv.value === rv.to) return;
+      const t = rv.dur > 0 ? Math.min((now - rv.start) / rv.dur, 1) : 1;
+      rv.value = rv.from + (rv.to - rv.from) * ease(t);
+      if (t >= 1) {
+        rv.value = rv.to;
+        const d = rv.done; rv.done = null;
+        if (d) d();
+      }
+    }
+
     function frame(now) {
       const dt = Math.min((now - last) / 1000, 1 / 20);
       last = now;
       if (!reduceMotion) cur += dt;
+      stepReveal(now);
 
       let vx = 0, vy = 0;
       if (ptr.moved && dt > 0) {
@@ -488,11 +717,20 @@
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
       trails.reverse();
 
-      // oil
-      gl.useProgram(oilProg.p);
+      // oil (or nothing at all, once it's fully peeled away)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, canvas.width, canvas.height);
+      if (rv.value >= 1) {
+        gl.clearColor(0, 0, 0, 0);
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        ptr.px = ptr.x; ptr.py = ptr.y; ptr.moved = false;
+        requestAnimationFrame(frame);
+        return;
+      }
+      gl.useProgram(oilProg.p);
       const ou = oilProg.u;
+      gl.uniform1f(ou.uReveal, rv.value);
+      gl.uniform2f(ou.uOrigin, rv.ox, rv.oy);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, sims[0].tex);
       gl.uniform1i(ou.uSim, 0);
@@ -513,6 +751,81 @@
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
+  })();
+  </script>
+
+  <!-- Hash routing between the splash and the inner pages -->
+  <script>
+  (function () {
+    const pages = new Map([...document.querySelectorAll('.page')].map(el => [el.dataset.page, el]));
+    const navLinks = [...document.querySelectorAll('.nav a')];
+    const splash = document.querySelector('h1');
+    let current = 'home';
+    let lastPress = null;
+
+    // remember where the user clicked, so the peel starts from there
+    document.addEventListener('pointerdown', e => {
+      lastPress = { x: e.clientX, y: e.clientY, t: performance.now() };
+    });
+    const origin = () =>
+      lastPress && performance.now() - lastPress.t < 1500
+        ? lastPress
+        : { x: innerWidth / 2, y: innerHeight / 2 };
+
+    function setActivePage(name) {
+      pages.forEach((el, key) => el.classList.toggle('is-active', key === name));
+    }
+    let showTimer = 0;
+    function hideContent() {
+      clearTimeout(showTimer);
+      pages.forEach(el => el.classList.remove('is-shown'));
+    }
+
+    function show(next, instant) {
+      const fx = window.oilFx;
+      navLinks.forEach(a => {
+        if (a.getAttribute('href') === '#' + next) a.setAttribute('aria-current', 'page');
+        else a.removeAttribute('aria-current');
+      });
+
+      if (next === 'home') {
+        document.body.classList.remove('on-page');
+        splash.removeAttribute('aria-hidden');
+        if (document.activeElement && document.activeElement.closest('.page')) document.activeElement.blur();
+        // content fades/scales out while the splash flows back over the page,
+        // which stays underneath until it's fully covered
+        hideContent();
+        const finish = () => setActivePage(null);
+        if (fx && !instant) fx.transition(0, origin(), finish);
+        else { if (fx) fx.set(0); finish(); }
+      } else {
+        // fade/scale the content in (re-triggered when switching page to page)
+        const el = pages.get(next);
+        hideContent();
+        setActivePage(next);
+        void el.offsetWidth;
+        document.body.classList.add('on-page');
+        splash.setAttribute('aria-hidden', 'true');
+        let dur = 0;
+        if (fx && !instant) dur = fx.transition(1, origin());
+        else if (fx) fx.set(1);
+        // start the content's entrance about halfway through the peel, so
+        // it's visibly scaling in rather than finishing under the splash
+        showTimer = setTimeout(() => el.classList.add('is-shown'), dur * 0.5);
+        el.querySelector('.page-title').focus({ preventScroll: true });
+      }
+      current = next;
+    }
+
+    function route(instant) {
+      const h = location.hash.slice(1);
+      const next = h === '' ? 'home' : pages.has(h) ? h : null;
+      if (next === null || next === current) return; // e.g. #contact: nothing yet
+      show(next, instant);
+    }
+
+    window.addEventListener('hashchange', () => route(false));
+    route(true);
   })();
   </script>
 </body>
