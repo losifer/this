@@ -216,7 +216,8 @@
     /* Portrait as a background element: full-height, bottom-right, behind
        the page content. Fades softly into the page on its left and top. */
     .portrait {
-      position: absolute;
+      /* fixed: stays put while the page content scrolls over it */
+      position: fixed;
       inset: 0;
       overflow: hidden;
       pointer-events: none;
@@ -249,6 +250,9 @@
       mask-composite: intersect, intersect;
     }
     .page.is-shown .portrait img { opacity: 1; }
+    /* About: portrait hidden for now; content in a centered 600px column */
+    #page-about .portrait { display: none; }
+    #page-about .page-inner { max-width: 600px; margin: 0 auto; }
     .portrait img { filter: url(#portrait-warp); }
     html:not([data-theme="light"]) .portrait img { filter: url(#portrait-key); }
     @media (max-width: 720px) {
@@ -281,6 +285,16 @@
       gap: clamp(12px, 2vw, 24px);
       margin-bottom: clamp(28px, 5vh, 56px);
     }
+    /* hidden on screen, still read by screen readers and focusable on navigation */
+    .visually-hidden {
+      position: absolute !important;
+      width: 1px; height: 1px;
+      margin: -1px; padding: 0;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+      border: 0;
+    }
     .page-title {
       font-family: "Bebas Neue", sans-serif;
       font-weight: 400;
@@ -299,7 +313,64 @@
       font-size: 1rem;
       line-height: 1.6;
     }
+    .block--plain { background: none; border: 0; border-radius: 0; padding: 0; }
     .block p { max-width: 60ch; }
+    .rule {
+      border: 0;
+      height: 1px;
+      background: rgba(var(--fg-rgb), 0.15);
+      margin: clamp(28px, 5vh, 48px) 0;
+    }
+    /* work history */
+    .section-label {
+      font-family: "Bebas Neue", sans-serif;
+      font-weight: 400;
+      font-size: 2rem;
+      line-height: 1;
+      letter-spacing: 0.02em;
+      color: rgb(var(--fg-rgb));
+      margin-bottom: clamp(20px, 3vh, 32px);
+    }
+    .jobs { list-style: none; display: grid; gap: clamp(32px, 5vh, 48px); }
+    .job-head { margin-bottom: 12px; }
+    .job-company {
+      font-size: 1.125rem;
+      font-weight: 500;
+      line-height: 1.3;
+      color: rgb(var(--fg-rgb));
+    }
+    .job-role { color: rgba(var(--fg-rgb), 0.85); }
+    .job-meta { font-size: 0.875rem; color: rgba(var(--fg-rgb), 0.55); }
+    .job ul { margin: 12px 0 0 1.1em; display: grid; gap: 6px; }
+    .job ul li::marker { color: rgba(var(--fg-rgb), 0.4); }
+    /* skills */
+    .skill-group + .skill-group { margin-top: clamp(24px, 4vh, 32px); }
+    .skill-heading {
+      font-size: 0.875rem;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: rgba(var(--fg-rgb), 0.55);
+      margin-bottom: 12px;
+    }
+    .tags { list-style: none; display: flex; flex-wrap: wrap; gap: 8px; }
+    .tags li {
+      font-size: 0.875rem;
+      line-height: 1.3;
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(var(--fg-rgb), 0.18);
+      color: rgba(var(--fg-rgb), 0.85);
+    }
+    /* the diagram is white line art; use it as a mask so it takes the theme colour */
+    .diagram {
+      margin-top: clamp(24px, 4vh, 40px);
+      width: 100%;
+      aspect-ratio: 2500 / 1252;
+      background: rgba(var(--fg-rgb), 0.85);
+      -webkit-mask: url(double-diamond.webp) center / contain no-repeat;
+      mask: url(double-diamond.webp) center / contain no-repeat;
+    }
     .skeleton { margin-top: 24px; display: grid; gap: 12px; }
     .skeleton span {
       display: block;
@@ -335,12 +406,110 @@
     <section class="page" id="page-about" data-page="about" aria-labelledby="title-about">
       <div class="portrait" aria-hidden="true"><img src="carlos.jpg" alt="" decoding="async"></div>
       <div class="page-inner">
-        <header class="page-head">
+        <header class="page-head visually-hidden">
           <h2 class="page-title" id="title-about" tabindex="-1">Who Is Carlos</h2>
         </header>
-        <div class="block">
-          <p>Placeholder — a few lines about Carlos will go here.</p>
-          <div class="skeleton" aria-hidden="true"><span></span><span></span><span></span></div>
+        <div class="block block--plain">
+          <p>I am a digital product designer with a passion for creating experiences that keep people engaged. My strengths include user experience design, design systems, visual design, prototyping, and interactive animation.</p>
+          <hr class="rule">
+          <p>My design process makes use of the double diamond approach to solve problems.</p>
+          <div class="diagram" role="img" aria-label="Double diamond design process. A challenge leads into four phases, ending in an outcome. Discover: surveys, customer interviews, stakeholder interviews, requirements, competitive analysis, documentation. Define: define the customer, customer journey map, task analysis, identify themes, look for opportunities. Ideate: brainstorm solutions, whiteboard, sketch and wireframe, define user stories, lo-fi mock-ups, prototype, test and validate. Deliver: refine, test and validate, usability testing, iterate on user feedback, fit and finish, deliver, document."></div>
+
+          <hr class="rule">
+          <section class="history" aria-labelledby="history-title">
+            <h3 class="section-label" id="history-title">Work history</h3>
+            <ol class="jobs">
+              <li class="job">
+                <header class="job-head">
+                  <h4 class="job-company">Amazon AWS</h4>
+                  <p class="job-role">Senior UX Designer</p>
+                  <p class="job-meta">Feb 2020 – Present · East Palo Alto, CA</p>
+                </header>
+                <p>UX Designer on multiple AWS services in analytics and databases, including Amazon OpenSearch Service (formerly Elasticsearch Service) and Redshift.</p>
+              </li>
+
+              <li class="job">
+                <header class="job-head">
+                  <h4 class="job-company">Ancestry.com</h4>
+                  <p class="job-role">Senior UX Designer / Prototyper</p>
+                  <p class="job-meta">Feb 2017 – Present · San Francisco, CA</p>
+                </header>
+                <p>Lead the UX prototyping effort with flexibility to support various teams in solving problems to increase customer engagement, conversion, and delight across the Ancestry Family History and DNA web and mobile products.</p>
+                <ul>
+                  <li>Collaborate with UX team members and product managers to develop interactive and clickable prototypes that help improve the design and usability of new and existing product features.</li>
+                  <li>Help organize design sprints and rapid prototyping brainstorm sessions.</li>
+                  <li>Established and lead the motion department at Ancestry, advocating for the use of justifiable motion in our products.</li>
+                  <li>Research and prototype animations using frameworks such as Lottie for proof of concept and aiding the process of development and shipping.</li>
+                  <li>Work on the systems team to define new UI components and product design standards.</li>
+                  <li>Organize and maintain the pattern library for the UX team.</li>
+                  <li>Create internal prototypes to help socialize and test usability and accessibility of new UI standards.</li>
+                </ul>
+              </li>
+
+              <li class="job">
+                <header class="job-head">
+                  <h4 class="job-company">StyleSeat</h4>
+                  <p class="job-role">Product Designer</p>
+                  <p class="job-meta">Feb 2016 – Jan 2017 · San Francisco, CA</p>
+                </header>
+                <p>Lead product designer on the Supply Core experience team for the StyleSeat mobile and desktop application.</p>
+                <ul>
+                  <li>Redesigned the signup flow, which led to a higher increase in conversion.</li>
+                  <li>Collaborated on user research and testing session responsibilities, including in-person and phone interviews, visiting client locations, and online surveys.</li>
+                  <li>Iterative approach to design process in order to ship out and improve upon new features through data analysis, A/B testing cells, and customer service feedback.</li>
+                  <li>Worked closely with various levels of stakeholders to help leverage our customer needs with our business goals in order to deliver the best possible solutions to help drive pro growth conversions up.</li>
+                </ul>
+              </li>
+            </ol>
+          </section>
+
+          <hr class="rule">
+          <section class="skills" aria-labelledby="skills-title">
+            <h3 class="section-label" id="skills-title">Skills</h3>
+            <div class="skill-group">
+              <h4 class="skill-heading">Design</h4>
+              <ul class="tags">
+                <li>Interaction design</li>
+                <li>Visual design</li>
+                <li>User interface design</li>
+                <li>Wireframes &amp; task flows</li>
+                <li>Rapid prototyping</li>
+                <li>Responsive web design</li>
+                <li>Motion design &amp; animation</li>
+                <li>Video production &amp; compression</li>
+                <li>Apple Human Interface Guidelines</li>
+                <li>Android Material Design principles</li>
+              </ul>
+            </div>
+            <div class="skill-group">
+              <h4 class="skill-heading">Code</h4>
+              <ul class="tags">
+                <li>SwiftUI</li>
+                <li>Lottie</li>
+                <li>React</li>
+                <li>HTML / Pug</li>
+                <li>CSS / SCSS / Stylus</li>
+              </ul>
+            </div>
+            <div class="skill-group">
+              <h4 class="skill-heading">Software</h4>
+              <ul class="tags">
+                <li>Figma</li>
+                <li>Framer X</li>
+                <li>Xcode</li>
+                <li>Quartz Composer / Origami</li>
+                <li>Principle</li>
+                <li>Sketch</li>
+                <li>InVision</li>
+                <li>Adobe Illustrator</li>
+                <li>Adobe After Effects</li>
+                <li>Balsamiq</li>
+                <li>Cinema 4D</li>
+                <li>GitHub</li>
+                <li>Visual Studio Code</li>
+              </ul>
+            </div>
+          </section>
         </div>
       </div>
     </section>
