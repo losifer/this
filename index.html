@@ -15,6 +15,13 @@
     // apply the saved theme before first paint (default: dark)
     try { document.documentElement.dataset.theme = localStorage.getItem('theme') === 'light' ? 'light' : 'dark'; }
     catch (e) { document.documentElement.dataset.theme = 'dark'; }
+    // first load on the home screen plays an intro: the UI fades in while
+    // the oil and the title form out of the background
+    if ((location.hash === '' || location.hash === '#') &&
+        !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+      document.documentElement.classList.add('intro');
+      addEventListener('load', () => setTimeout(() => document.documentElement.classList.remove('intro'), 600));
+    }
   </script>
   <style>
     /* themes: dark (default) and light, switched via html[data-theme] */
@@ -158,6 +165,10 @@
       visibility: hidden;
       transition: opacity 0.5s ease, visibility 0s linear 0.5s;
     }
+    /* intro on first load: the UI fades in a beat after the oil starts forming */
+    .nav { transition: opacity 0.9s ease 0.55s, transform 1s cubic-bezier(0.2, 0.7, 0.2, 1) 0.55s; }
+    .intro .nav, .intro h1 { opacity: 0; transition: none; }
+    .intro .nav { transform: translateY(10px); }
     .on-page .brand {
       opacity: 1;
       visibility: visible;
@@ -523,6 +534,7 @@
     uniform float uShift;       // swipe: splash offset in screen heights (+ = up)
     uniform float uLight;       // theme: 0 = dark, 1 = light (tweened)
     uniform float uLeak;        // 0..1: oil left hanging at the top of inner pages
+    uniform float uForm;        // 0..1: intro, the oil and title forming on first load
     uniform float uPulse;       // 0..1: strip lights up during a page-to-page slide
     uniform float uSweep;       // spectrum offset, travelling with the slide
 
@@ -584,6 +596,12 @@
         uv += rw * (0.05 * k + 0.14 * edge * (1.0 - keep * 0.5));
       }
 
+      // intro: everything swims in a thick, swirling oil while it forms
+      if (uForm < 1.0) {
+        vec2 fq = vUv * asp * 1.8 + vec2(uTime * 0.12, -uTime * 0.09);
+        vec2 fw = vec2(fbm(fq), fbm(fq + vec2(5.2, 1.3))) - 0.5;
+        uv += fw * 0.14 * pow(1.0 - uForm, 1.6);
+      }
       vec4 s = decode(texture2D(uSim, uv));
 
       // the trail is a thin liquid layer: treat it as a height field and
@@ -658,9 +676,58 @@
       // the text rides the same flow as the oil, so it smears with it
       // (and bends under the trail, like looking through water)
       vec2 t = texture2D(uText, uv - s.zw - refr).rg;
+      float textK = 1.0;          // intro progress for the title (1 = settled)
+      vec3 tfilmI = vec3(0.0);    // the title's oily sheen during the intro
+      float tRim = 0.0;           // ...and its glowing reveal edge
+
+      // intro: the oil pools out of the flat background along a noisy front
+      // with an iridescent rim, and the title condenses out of it after
+      if (uForm < 1.0) {
+        float nf = fbm(vUv * asp * 2.6 + vec2(uTime * 0.05, -uTime * 0.03));
+        float oilK = clamp(uForm * 1.35, 0.0, 1.0);
+        float thr = mix(1.05, -0.2, oilK);
+        float m = smoothstep(thr, thr + 0.24, nf);
+        float rimF = (1.0 - abs(m * 2.0 - 1.0)) * (1.0 - oilK);
+        vec3 spec3 = 0.5 + 0.5 * cos(6.28318 * (nf * 2.6 + uTime * 0.2 + vec3(0.0, 0.33, 0.67)));
+        spec3 = mix(vec3(dot(spec3, vec3(0.333))), spec3, 0.9);
+        col = mix(base * mix(0.9, 1.0, uLight), col, m);
+        // the fresh oil carries a thin-film sheen that settles as it forms
+        col += spec3 * m * (1.0 - oilK) * mix(0.1, 0.06, uLight);
+        col += spec3 * rimF * mix(0.34, 0.18, uLight);
+        // title: swims in out of the oil — sampled through its own stronger
+        // distortion that relaxes as it settles, and carrying an oil-film
+        // sheen until it sets
+        textK = clamp(uForm * 1.45 - 0.35, 0.0, 1.0);
+        float relax = pow(1.0 - textK, 1.4);
+        // big, slow blobs of oil: the title is revealed where they've pooled,
+        // so it appears in gooey patches that merge, not as a uniform fade
+        vec2 bq = vUv * asp * 1.5 + vec2(uTime * 0.16, -uTime * 0.11);
+        float blob = fbm(bq + 0.6 * vec2(fbm(bq * 1.3), fbm(bq * 1.3 + 4.4)));
+        // the blobs bulge the letters as they pass: push along the blob slope
+        float be = 0.02;
+        vec2 bg = vec2(fbm(bq + vec2(be, 0.0)) - fbm(bq - vec2(be, 0.0)),
+                       fbm(bq + vec2(0.0, be)) - fbm(bq - vec2(0.0, be))) / (2.0 * be);
+        vec2 tq = vUv * asp * 1.6 + vec2(uTime * 0.2, uTime * 0.14);
+        vec2 tw = vec2(fbm(tq), fbm(tq + vec2(7.1, 2.9))) - 0.5;
+        vec2 bend = (tw * 0.12 + bg * 0.035) * relax;
+        t = texture2D(uText, uv - s.zw - refr + bend).rg;
+        float bthr = mix(0.95, -0.25, textK);
+        float reveal = smoothstep(bthr, bthr + 0.07, blob);       // gooey edge
+        t *= reveal;
+        // a bright oily rim where a blob is just reaching the letters
+        tRim = (1.0 - abs(reveal * 2.0 - 1.0)) * relax;
+        float tph = blob * 2.4 + fbm(tq * 1.7) * 1.2 + uTime * 0.35;
+        tfilmI = 0.5 + 0.5 * cos(6.28318 * (tph + vec3(0.0, 0.33, 0.67)));
+        tfilmI = mix(vec3(dot(tfilmI, vec3(0.333))), tfilmI, 0.9);
+      }
       col = mix(col, col * 0.5, t.g * mix(0.5, 0.12, uLight));
       // ink: cream #f3e9d7 on dark, deep plum #2a1421 on light
-      col = mix(col, mix(vec3(0.953, 0.914, 0.843), vec3(0.165, 0.078, 0.129), uLight), t.r);
+      vec3 ink = mix(vec3(0.953, 0.914, 0.843), vec3(0.165, 0.078, 0.129), uLight);
+      // during the intro the letters are oily: iridescent film over the ink
+      ink = mix(ink, mix(ink * 0.55 + tfilmI * 0.55, ink * (0.6 + 0.6 * tfilmI), uLight),
+                (1.0 - textK) * 0.85);
+      ink += tfilmI * tRim * mix(0.5, 0.25, uLight);
+      col = mix(col, ink, t.r);
 
       // the melting front gets a bright, oily iridescent rim
       if (uReveal > 0.0) {
@@ -764,6 +831,9 @@
     let sims = [], trails = [], simW = 0, simH = 0, aspect = 1, textReady = false;
     let light = document.documentElement.dataset.theme === 'light' ? 1 : 0;
     let leak = 0;
+    // intro: tween uForm 0 -> 1 on first load (only if the page flagged it)
+    const intro = { k: document.documentElement.classList.contains('intro') ? 0 : 1, start: 0 };
+    const INTRO_MS = 2000;
     const LEAK_BAND = 0.012;          // height of the oil strip on inner pages (screen heights)
 
     const textTex = gl.createTexture();
@@ -847,6 +917,8 @@
         textReady = true;
         buildText();
         document.body.classList.add('gl-on');
+        // the title exists now: start the intro, and let the UI fade in
+        document.documentElement.classList.remove('intro');
       });
     window.addEventListener('resize', resize);
 
@@ -994,6 +1066,15 @@
       gl.uniform1f(ou.uMode, swipe ? 1 : 0);
       gl.uniform1f(ou.uShift, shift() * (1 - LEAK_BAND * leak));
       gl.uniform1f(ou.uLeak, leak);
+      if (intro.k < 1) {
+        if (!intro.start && textReady) intro.start = now;   // wait for the title
+        if (!intro.start) { /* hold at 0 */ } else {
+        const k = Math.min((now - intro.start) / INTRO_MS, 1);
+        intro.k = 1 - Math.pow(1 - k, 2.2);             // ease out
+        if (k >= 1) intro.k = 1;
+        }
+      }
+      gl.uniform1f(ou.uForm, intro.k);
       // page-to-page: light the strip and run the spectrum with the slide
       let pulse = 0;
       if (sw.dur) {
