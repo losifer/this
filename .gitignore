@@ -1,0 +1,4 @@
+.DS_Store
+# raw recordings and image originals: the site serves the .mp4 / .webp / .jpg exports
+projects/**/*.mov
+projects/**/*.png
