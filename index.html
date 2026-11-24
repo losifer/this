@@ -547,6 +547,7 @@
     }
     .project-meta dd { color: rgb(var(--fg-rgb)); }
     .project-desc { max-width: 60ch; color: rgba(var(--fg-rgb), 0.75); line-height: 1.6; }
+    .project-desc + .project-desc { margin-top: 1em; }
 
     /* ---- Olly intro: the Olly presentation from OUI-next (sample-pages/olly),
        on an off-tone panel with a soft radial glow. Text takes the site colours;
@@ -685,7 +686,7 @@
     .vocab .oi-top { stop-color: var(--oi-body-top); }
     .vocab .oi-bottom { stop-color: var(--oi-body-bottom); }
     .vocab-defs { position: absolute; width: 0; height: 0; overflow: hidden; }
-    .vocab-title {
+    .vocab-title, .project-subtitle {
       font-family: "Bebas Neue", sans-serif;
       font-weight: 400;
       font-size: clamp(1.75rem, 3.5vw, 2.5rem);
@@ -994,6 +995,17 @@
       .lightbox { transition: none; transform: none; }
       .lightbox video, .lightbox-nav { transition: none; }
     }
+    /* a section within a project: rule, secondary title, description, then a grid */
+    .project-rule { margin: clamp(48px, 9vh, 96px) 0 clamp(28px, 5vh, 48px); }
+    .project-subtitle { margin-bottom: 12px; }
+    .shot-grid {
+      list-style: none;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: clamp(20px, 3vw, 32px);
+      margin-top: clamp(24px, 4vh, 40px);
+    }
+    @media (max-width: 640px) { .shot-grid { grid-template-columns: 1fr; } }
     .shot figcaption {
       margin-top: 12px;
       max-width: 60ch;
@@ -1150,10 +1162,10 @@
             </a>
           </li>
           <li>
-            <a class="project-card" href="#projects/osd-onboarding">
-              <div class="project-thumb"><img src="projects/osd-onboarding/thumb.webp?v=1" alt="" width="1200" height="833" loading="lazy" decoding="async"></div>
+            <a class="project-card" href="#projects/ai-search">
+              <div class="project-thumb"><img src="projects/ai-search/thumb.webp?v=1" alt="" width="1200" height="720" loading="lazy" decoding="async"></div>
               <div class="project-card-body">
-                <h3 class="project-card-title">Agentic Onboarding</h3>
+                <h3 class="project-card-title">AI Search</h3>
               </div>
             </a>
           </li>
@@ -1186,7 +1198,7 @@
             <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M222,128a6,6,0,0,1-6,6H54.49l61.75,61.76a6,6,0,1,1-8.48,8.48l-72-72a6,6,0,0,1,0-8.48l72-72a6,6,0,0,1,8.48,8.48L54.49,122H216A6,6,0,0,1,222,128Z"/></svg>
             All projects
           </a>
-          <a class="next-link" href="#projects/osd-onboarding" aria-label="Next project: Agentic Onboarding">
+          <a class="next-link" href="#projects/ai-search" aria-label="Next project: AI Search">
             Next
             <!-- Phosphor Icons (Light): arrow-right — MIT -->
             <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M220.24,132.24l-72,72a6,6,0,0,1-8.48-8.48L201.51,134H40a6,6,0,0,1,0-12H201.51L139.76,60.24a6,6,0,0,1,8.48-8.48l72,72A6,6,0,0,1,220.24,132.24Z"/></svg>
@@ -1257,11 +1269,43 @@
             </figure>
           </li>
         </ol>
+        <!-- sub-project: Onboarding -->
+        <hr class="rule project-rule">
+        <section class="project-sub" aria-labelledby="title-sub-onboarding">
+          <h3 class="project-subtitle" id="title-sub-onboarding">Onboarding</h3>
+          <p class="project-desc">Description placeholder. A short paragraph on the onboarding flow: who it&rsquo;s for, how Olly guides set-up and what it changed.</p>
+          <ul class="shot-grid">
+            <li>
+              <figure class="shot">
+                <img src="projects/opensearch-agentic/6.webp?v=1" alt="Step 1 of 3, Set up data sources: Olly asks what to observe and offers three options, beside a Getting Started panel" width="2000" height="1388" loading="lazy" decoding="async">
+                <figcaption>Caption placeholder for onboarding screenshot 1.</figcaption>
+              </figure>
+            </li>
+            <li>
+              <figure class="shot">
+                <img src="projects/opensearch-agentic/7.webp?v=1" alt="Olly asks which environment the data comes from, next to cards for OpenTelemetry, EKS, Kubernetes and Other" width="2000" height="1388" loading="lazy" decoding="async">
+                <figcaption>Caption placeholder for onboarding screenshot 2.</figcaption>
+              </figure>
+            </li>
+            <li>
+              <figure class="shot">
+                <img src="projects/opensearch-agentic/8.webp?v=1" alt="Step 2 of 3, Review and confirm: a configuration summary of 14 services on EKS stored in an OpenSearch Serverless collection" width="2000" height="1388" loading="lazy" decoding="async">
+                <figcaption>Caption placeholder for onboarding screenshot 3.</figcaption>
+              </figure>
+            </li>
+            <li>
+              <figure class="shot">
+                <img src="projects/opensearch-agentic/9.webp?v=1" alt="Step 3 of 3, Collecting your data: live counts and sparklines for logs, metrics and traces with a healthy status bar" width="2000" height="1388" loading="lazy" decoding="async">
+                <figcaption>Caption placeholder for onboarding screenshot 4.</figcaption>
+              </figure>
+            </li>
+          </ul>
+        </section>
       </div>
     </section>
 
-    <!-- ===== project: Amazon OpenSearch Service Agentic Onboarding ===== -->
-    <section class="page page--project" id="page-project-osd-onboarding" data-page="projects/osd-onboarding" aria-labelledby="title-project-osd-onboarding">
+    <!-- ===== project: AI Search ===== -->
+    <section class="page page--project" id="page-project-ai-search" data-page="projects/ai-search" aria-labelledby="title-project-ai-search">
       <div class="page-inner">
         <nav class="project-nav" aria-label="Projects">
           <a class="back-link" href="#projects">
@@ -1276,41 +1320,41 @@
           </a>
         </nav>
         <header class="page-head">
-          <h2 class="page-title" id="title-project-osd-onboarding" tabindex="-1"><span class="page-eyebrow">Amazon OpenSearch Service</span> Agentic Onboarding</h2>
+          <h2 class="page-title" id="title-project-ai-search" tabindex="-1"><span class="page-eyebrow">Amazon Web Services</span> AI Search</h2>
         </header>
         <dl class="project-meta">
-          <div><dt>Date</dt><dd>June 2026</dd></div>
-          <div><dt>Role</dt><dd>UX, Visual &amp; Motion Design</dd></div>
+          <div><dt>Date</dt><dd>Date placeholder</dd></div>
+          <div><dt>Role</dt><dd>Role placeholder</dd></div>
         </dl>
         <p class="project-desc">Project description placeholder. A short paragraph on the problem, the audience, what you designed and the outcome.</p>
         <ol class="shots">
           <li>
             <figure class="shot">
-              <img src="projects/osd-onboarding/0.webp?v=1" alt="Welcome to OpenSearch screen with a 3D OpenSearch logo, a Get started button and a Skip onboarding link" width="2000" height="1388" loading="lazy" decoding="async">
+              <img src="projects/ai-search/1.webp?v=1" alt="AI Search landing page: "Empower customers with AI Search" above a prompt to describe the search experience, over a wireframe 3D landscape of mountains and trees" width="2000" height="1199" loading="lazy" decoding="async">
               <figcaption>Caption placeholder for screenshot 1.</figcaption>
             </figure>
           </li>
           <li>
             <figure class="shot">
-              <img src="projects/osd-onboarding/1.webp?v=1" alt="Step 1 of 3, Set up data sources: Olly asks what to observe and offers three options, beside a Getting Started panel" width="2000" height="1388" loading="lazy" decoding="async">
+              <img src="projects/ai-search/2.webp?v=1" alt="Voice input: the prompt reads Listening… with a Stop button and spoken commands, over rippling concentric rings" width="2000" height="1199" loading="lazy" decoding="async">
               <figcaption>Caption placeholder for screenshot 2.</figcaption>
             </figure>
           </li>
           <li>
             <figure class="shot">
-              <img src="projects/osd-onboarding/2.webp?v=1" alt="Olly asks which environment the data comes from, next to cards for OpenTelemetry, EKS, Kubernetes and Other" width="2000" height="1388" loading="lazy" decoding="async">
+              <img src="projects/ai-search/3.webp?v=1" alt="Prompt for a store locator within my current location, over a wireframe 3D city street" width="2000" height="1199" loading="lazy" decoding="async">
               <figcaption>Caption placeholder for screenshot 3.</figcaption>
             </figure>
           </li>
           <li>
             <figure class="shot">
-              <img src="projects/osd-onboarding/3.webp?v=1" alt="Step 2 of 3, Review and confirm: a configuration summary of 14 services on EKS stored in an OpenSearch Serverless collection" width="2000" height="1388" loading="lazy" decoding="async">
+              <img src="projects/ai-search/4.webp?v=1" alt="Prompt for tracking exact available inventory, over a wireframe 3D warehouse of shelves" width="2000" height="1199" loading="lazy" decoding="async">
               <figcaption>Caption placeholder for screenshot 4.</figcaption>
             </figure>
           </li>
           <li>
             <figure class="shot">
-              <img src="projects/osd-onboarding/4.webp?v=1" alt="Step 3 of 3, Collecting your data: live counts and sparklines for logs, metrics and traces with a healthy status bar" width="2000" height="1388" loading="lazy" decoding="async">
+              <img src="projects/ai-search/5.webp?v=1" alt="Prompt for finding specialty stores in a vast marketplace, over a wireframe 3D market hall" width="2000" height="1199" loading="lazy" decoding="async">
               <figcaption>Caption placeholder for screenshot 5.</figcaption>
             </figure>
           </li>
@@ -1569,7 +1613,9 @@
           <div><dt>Date</dt><dd>April – May 2026</dd></div>
           <div><dt>Role</dt><dd>UX Design, Prototyping &amp; AI Development</dd></div>
         </dl>
-        <p class="project-desc">Project description placeholder. A short paragraph on the problem, the audience, what you designed and the outcome.</p>
+        <p class="project-desc">An internal interface builder tool that uses Kiro-cli to easily create quick prototypes for OpenSearch Dashboards. It uses design system components and follows strict guidelines using layout skills in order to create high fidelity mock-ups to make decisions quickly.</p>
+        <p class="project-desc">It was created as a quick hack while learning to design and develop prototypes using AI tools. This also allowed for component library updates and quick visual redesigns as we started to work towards a new experience and visual design for OpenSearch. I used this as a way to learn to work with prompts and skills while also creating something useful that the team could use.</p>
+        <p class="project-desc">While the design system was limited in its agentic patterns, it was scrappy and got the job done.</p>
         <ol class="shots">
           <li>
             <figure class="shot">
