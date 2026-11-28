@@ -12,9 +12,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Inter:wght@400;500&family=Source+Sans+3:wght@400;500;600&display=swap" rel="stylesheet">
   <script>
-    // apply the saved theme before first paint (default: dark)
-    try { document.documentElement.dataset.theme = localStorage.getItem('theme') === 'light' ? 'light' : 'dark'; }
-    catch (e) { document.documentElement.dataset.theme = 'dark'; }
+    // one look per place: home is dark (plum), inner pages are light (paper).
+    // Set before first paint; the router keeps it in sync after that.
+    document.documentElement.dataset.theme = (location.hash === '' || location.hash === '#') ? 'dark' : 'light';
     // Chromium can use SVG filters as backdrop filters (scroll-edge warp)
     if (navigator.userAgentData) document.documentElement.classList.add('chromium');
     // first load on the home screen plays an intro: the UI fades in while
@@ -26,7 +26,10 @@
     }
   </script>
   <style>
-    /* themes: dark (default) and light, switched via html[data-theme] */
+    /* palettes: dark on the home screen, light on every inner page (no
+       user toggle). Inner pages and the lightbox are always light; the
+       shared chrome (logo, nav) follows html[data-theme], which the router
+       sets to light once a page is revealed and back to dark on the way home */
     :root {
       --bg: #4f1f38;          /* splash, rich plum / burgundy */
       --page-bg: #2a1421;     /* inner pages, deep plum */
@@ -34,7 +37,7 @@
       --fg-rgb: 243, 233, 215;
       --shadow: rgba(20, 8, 16, 0.45);
     }
-    html[data-theme="light"] {
+    html[data-theme="light"], .page, .lightbox {
       --bg: #e3d5c1;          /* splash, deeper cream */
       --page-bg: #ece2d3;     /* inner pages, paper */
       --fg: #2a1421;          /* deep plum */
@@ -124,27 +127,6 @@
     .on-page .nav-home { display: list-item; animation: nav-in 0.5s ease 0.3s both; }
     @keyframes nav-in { from { opacity: 0; transform: translateX(6px); } to { opacity: 1; transform: none; } }
 
-    /* theme toggle: last item in the nav, icon only */
-    .nav ul { align-items: center; }
-    .theme-toggle {
-      display: grid;
-      place-items: center;
-      width: 24px; height: 24px;
-      margin: -4px -4px -4px 0;
-      padding: 0;
-      border: 0;
-      background: none;
-      color: var(--fg);
-      opacity: 0.8;
-      cursor: pointer;
-      transition: opacity 0.25s ease, transform 0.4s cubic-bezier(0.34, 1.3, 0.64, 1);
-    }
-    .theme-toggle:hover, .theme-toggle:focus-visible { opacity: 1; transform: rotate(-20deg); }
-    .theme-toggle:focus-visible { outline: 1px solid rgba(var(--fg-rgb), 0.6); outline-offset: 2px; border-radius: 4px; }
-    .theme-toggle svg { width: 15px; height: 15px; }
-    .theme-toggle .i-moon { display: none; }
-    html[data-theme="light"] .theme-toggle .i-sun { display: none; }
-    html[data-theme="light"] .theme-toggle .i-moon { display: block; }
 
     /* Top-left wordmark on inner pages; links home. Fades/refracts in and
        out via JS (#brand-refract), and ripples under the pointer. */
@@ -259,7 +241,6 @@
     #page-about .portrait { display: none; }
     #page-about .page-inner { max-width: 600px; margin: 0 auto; }
     .portrait img { filter: url(#portrait-warp); }
-    html:not([data-theme="light"]) .portrait img { filter: url(#portrait-key); }
     @media (max-width: 720px) {
       .portrait img { height: 72%; }
     }
@@ -411,7 +392,7 @@
     }
     /* the mask fades the page's own background too, so while a page is open
        the body behind it takes the same colour */
-    body:has(.page.is-active) { background-color: var(--page-bg); }
+    body:has(.page.is-active) { background-color: #ece2d3; }
     /* blur + distort: unfilled bands that warp only the content beneath,
        strongest at the edge and easing off inward. The warp (#edge-distort,
        an SVG displacement) only works as a backdrop filter in Chromium, so
@@ -577,7 +558,7 @@
       text-transform: none;
       letter-spacing: normal;
     }
-    html[data-theme="light"] .olly-intro {
+    .page .olly-intro {
       --oi-shadow: rgba(21, 58, 90, 0.28);
       --oi-body-top: #14558e;                 /* Olly: OpenSearch navy */
       --oi-body-bottom: #153a5a;
@@ -731,7 +712,7 @@
       --oi-body-bottom: #d9dee5;
       --oi-eye: #181028;
     }
-    html[data-theme="light"] .vocab, html[data-theme="light"] .st {
+    .page .vocab, .page .st {
       --oi-body-top: #14558e;
       --oi-body-bottom: #153a5a;
       --oi-eye: #ffffff;
@@ -750,7 +731,7 @@
       font-size: 0.9375rem;
     }
     .st-chat { --oi-bg-center: #43293b; --oi-bg-edge: #22101b; }
-    html[data-theme="light"] .st-chat { --oi-bg-center: #faf5ec; --oi-bg-edge: #ddd0bd; }
+    .page .st-chat { --oi-bg-center: #faf5ec; --oi-bg-edge: #ddd0bd; }
     /* the thread scrolls to the newest message, like a real chat */
     .st-thread { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 28px; padding: 48px 24px 16px; overflow-y: auto; scrollbar-width: none; }
     .st-thread::-webkit-scrollbar { display: none; }
@@ -857,7 +838,7 @@
     .shots {
       list-style: none;
       display: grid;
-      gap: clamp(32px, 6vh, 64px);
+      gap: 24px;
       margin-top: clamp(32px, 6vh, 56px);
     }
     .shot img, .shot video, .clip video {
@@ -878,6 +859,7 @@
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: clamp(12px, 2vw, 24px);
     }
+    .clips--stack { grid-template-columns: 1fr; gap: 24px; }   /* one clip per row, full width */
     @media (max-width: 640px) { .clips { grid-template-columns: 1fr; } }
     .clip {
       position: relative;
@@ -892,6 +874,9 @@
       transition: transform 0.4s cubic-bezier(0.34, 1.3, 0.64, 1);
     }
     .clip video { border-radius: 12px; }
+    .clips--light .clip { background: #f3f2f0; }   /* light recordings (AI Search) */
+    /* the screen recordings carry a thin dark edge: scale just past it */
+    .clips--light .clip video { transform: scale(1.015); }
     .clip:hover, .clip:focus-visible { transform: translateY(-3px); }
     .clip:focus-visible { outline: 1px solid rgba(var(--fg-rgb), 0.6); outline-offset: 3px; }
     .clip-icon {
@@ -1005,6 +990,7 @@
       gap: clamp(20px, 3vw, 32px);
       margin-top: clamp(24px, 4vh, 40px);
     }
+    .shots .shot-grid { margin-top: 0; gap: 24px; }
     @media (max-width: 640px) { .shot-grid { grid-template-columns: 1fr; } }
     .shot figcaption {
       margin-top: 12px;
@@ -1024,13 +1010,6 @@
       <li><a href="#projects" data-route="projects">Projects</a></li>
       <li><a href="#about" data-route="about">About</a></li>
       <li><a href="#contact" data-route="contact">Contact</a></li>
-      <li>
-        <button class="theme-toggle" type="button" aria-label="Switch to light mode">
-          <!-- Phosphor Icons (Light): sun, moon — MIT -->
-          <svg class="i-sun" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M122,40V16a6,6,0,0,1,12,0V40a6,6,0,0,1-12,0Zm68,88a62,62,0,1,1-62-62A62.07,62.07,0,0,1,190,128Zm-12,0a50,50,0,1,0-50,50A50.06,50.06,0,0,0,178,128ZM59.76,68.24a6,6,0,1,0,8.48-8.48l-16-16a6,6,0,0,0-8.48,8.48Zm0,119.52-16,16a6,6,0,1,0,8.48,8.48l16-16a6,6,0,1,0-8.48-8.48ZM192,70a6,6,0,0,0,4.24-1.76l16-16a6,6,0,0,0-8.48-8.48l-16,16A6,6,0,0,0,192,70Zm4.24,117.76a6,6,0,0,0-8.48,8.48l16,16a6,6,0,0,0,8.48-8.48ZM46,128a6,6,0,0,0-6-6H16a6,6,0,0,0,0,12H40A6,6,0,0,0,46,128Zm82,82a6,6,0,0,0-6,6v24a6,6,0,0,0,12,0V216A6,6,0,0,0,128,210Zm112-88H216a6,6,0,0,0,0,12h24a6,6,0,0,0,0-12Z"/></svg>
-          <svg class="i-moon" viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M232.13,143.64a6,6,0,0,0-6-1.49A90.07,90.07,0,0,1,113.86,29.85a6,6,0,0,0-7.49-7.48A102.88,102.88,0,0,0,54.48,58.68,102,102,0,0,0,197.32,201.52a102.88,102.88,0,0,0,36.31-51.89A6,6,0,0,0,232.13,143.64Zm-42,48.29a90,90,0,0,1-126-126A90.9,90.9,0,0,1,99.65,37.66,102.06,102.06,0,0,0,218.34,156.35,90.9,90.9,0,0,1,190.1,191.93Z"/></svg>
-        </button>
-      </li>
     </ul>
   </nav>
   <h1>This Is Carlos</h1>
@@ -1162,18 +1141,18 @@
             </a>
           </li>
           <li>
-            <a class="project-card" href="#projects/ai-search">
-              <div class="project-thumb"><img src="projects/ai-search/thumb.webp?v=1" alt="" width="1200" height="720" loading="lazy" decoding="async"></div>
-              <div class="project-card-body">
-                <h3 class="project-card-title">AI Search</h3>
-              </div>
-            </a>
-          </li>
-          <li>
             <a class="project-card" href="#projects/olly-agent">
               <div class="project-thumb"><img src="projects/olly-agent/thumb.webp?v=2" alt="" width="1200" height="750" loading="lazy" decoding="async"></div>
               <div class="project-card-body">
                 <h3 class="project-card-title">Olly Agent</h3>
+              </div>
+            </a>
+          </li>
+          <li>
+            <a class="project-card" href="#projects/ai-search">
+              <div class="project-thumb"><img src="projects/ai-search/thumb.webp?v=1" alt="" width="1200" height="720" loading="lazy" decoding="async"></div>
+              <div class="project-card-body">
+                <h3 class="project-card-title">AI Search</h3>
               </div>
             </a>
           </li>
@@ -1198,7 +1177,7 @@
             <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M222,128a6,6,0,0,1-6,6H54.49l61.75,61.76a6,6,0,1,1-8.48,8.48l-72-72a6,6,0,0,1,0-8.48l72-72a6,6,0,0,1,8.48,8.48L54.49,122H216A6,6,0,0,1,222,128Z"/></svg>
             All projects
           </a>
-          <a class="next-link" href="#projects/ai-search" aria-label="Next project: AI Search">
+          <a class="next-link" href="#projects/olly-agent" aria-label="Next project: Olly Agent">
             Next
             <!-- Phosphor Icons (Light): arrow-right — MIT -->
             <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M220.24,132.24l-72,72a6,6,0,0,1-8.48-8.48L201.51,134H40a6,6,0,0,1,0-12H201.51L139.76,60.24a6,6,0,0,1,8.48-8.48l72,72A6,6,0,0,1,220.24,132.24Z"/></svg>
@@ -1304,64 +1283,6 @@
       </div>
     </section>
 
-    <!-- ===== project: AI Search ===== -->
-    <section class="page page--project" id="page-project-ai-search" data-page="projects/ai-search" aria-labelledby="title-project-ai-search">
-      <div class="page-inner">
-        <nav class="project-nav" aria-label="Projects">
-          <a class="back-link" href="#projects">
-            <!-- Phosphor Icons (Light): arrow-left — MIT -->
-            <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M222,128a6,6,0,0,1-6,6H54.49l61.75,61.76a6,6,0,1,1-8.48,8.48l-72-72a6,6,0,0,1,0-8.48l72-72a6,6,0,0,1,8.48,8.48L54.49,122H216A6,6,0,0,1,222,128Z"/></svg>
-            All projects
-          </a>
-          <a class="next-link" href="#projects/olly-agent" aria-label="Next project: Olly Agent">
-            Next
-            <!-- Phosphor Icons (Light): arrow-right — MIT -->
-            <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M220.24,132.24l-72,72a6,6,0,0,1-8.48-8.48L201.51,134H40a6,6,0,0,1,0-12H201.51L139.76,60.24a6,6,0,0,1,8.48-8.48l72,72A6,6,0,0,1,220.24,132.24Z"/></svg>
-          </a>
-        </nav>
-        <header class="page-head">
-          <h2 class="page-title" id="title-project-ai-search" tabindex="-1"><span class="page-eyebrow">Amazon Web Services</span> AI Search</h2>
-        </header>
-        <dl class="project-meta">
-          <div><dt>Date</dt><dd>Date placeholder</dd></div>
-          <div><dt>Role</dt><dd>Role placeholder</dd></div>
-        </dl>
-        <p class="project-desc">Project description placeholder. A short paragraph on the problem, the audience, what you designed and the outcome.</p>
-        <ol class="shots">
-          <li>
-            <figure class="shot">
-              <img src="projects/ai-search/1.webp?v=1" alt="AI Search landing page: "Empower customers with AI Search" above a prompt to describe the search experience, over a wireframe 3D landscape of mountains and trees" width="2000" height="1199" loading="lazy" decoding="async">
-              <figcaption>Caption placeholder for screenshot 1.</figcaption>
-            </figure>
-          </li>
-          <li>
-            <figure class="shot">
-              <img src="projects/ai-search/2.webp?v=1" alt="Voice input: the prompt reads Listening… with a Stop button and spoken commands, over rippling concentric rings" width="2000" height="1199" loading="lazy" decoding="async">
-              <figcaption>Caption placeholder for screenshot 2.</figcaption>
-            </figure>
-          </li>
-          <li>
-            <figure class="shot">
-              <img src="projects/ai-search/3.webp?v=1" alt="Prompt for a store locator within my current location, over a wireframe 3D city street" width="2000" height="1199" loading="lazy" decoding="async">
-              <figcaption>Caption placeholder for screenshot 3.</figcaption>
-            </figure>
-          </li>
-          <li>
-            <figure class="shot">
-              <img src="projects/ai-search/4.webp?v=1" alt="Prompt for tracking exact available inventory, over a wireframe 3D warehouse of shelves" width="2000" height="1199" loading="lazy" decoding="async">
-              <figcaption>Caption placeholder for screenshot 4.</figcaption>
-            </figure>
-          </li>
-          <li>
-            <figure class="shot">
-              <img src="projects/ai-search/5.webp?v=1" alt="Prompt for finding specialty stores in a vast marketplace, over a wireframe 3D market hall" width="2000" height="1199" loading="lazy" decoding="async">
-              <figcaption>Caption placeholder for screenshot 5.</figcaption>
-            </figure>
-          </li>
-        </ol>
-      </div>
-    </section>
-
     <!-- ===== project: Olly Agent ===== -->
     <section class="page page--project" id="page-project-olly-agent" data-page="projects/olly-agent" aria-labelledby="title-project-olly-agent">
       <div class="page-inner">
@@ -1371,7 +1292,7 @@
             <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M222,128a6,6,0,0,1-6,6H54.49l61.75,61.76a6,6,0,1,1-8.48,8.48l-72-72a6,6,0,0,1,0-8.48l72-72a6,6,0,0,1,8.48,8.48L54.49,122H216A6,6,0,0,1,222,128Z"/></svg>
             All projects
           </a>
-          <a class="next-link" href="#projects/oui-builder" aria-label="Next project: OUI Builder">
+          <a class="next-link" href="#projects/ai-search" aria-label="Next project: AI Search">
             Next
             <!-- Phosphor Icons (Light): arrow-right — MIT -->
             <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M220.24,132.24l-72,72a6,6,0,0,1-8.48-8.48L201.51,134H40a6,6,0,0,1,0-12H201.51L139.76,60.24a6,6,0,0,1,8.48-8.48l72,72A6,6,0,0,1,220.24,132.24Z"/></svg>
@@ -1591,6 +1512,81 @@
         </ol>
       </div>
     </section>
+    <!-- ===== project: AI Search ===== -->
+    <section class="page page--project" id="page-project-ai-search" data-page="projects/ai-search" aria-labelledby="title-project-ai-search">
+      <div class="page-inner">
+        <nav class="project-nav" aria-label="Projects">
+          <a class="back-link" href="#projects">
+            <!-- Phosphor Icons (Light): arrow-left — MIT -->
+            <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M222,128a6,6,0,0,1-6,6H54.49l61.75,61.76a6,6,0,1,1-8.48,8.48l-72-72a6,6,0,0,1,0-8.48l72-72a6,6,0,0,1,8.48,8.48L54.49,122H216A6,6,0,0,1,222,128Z"/></svg>
+            All projects
+          </a>
+          <a class="next-link" href="#projects/oui-builder" aria-label="Next project: OUI Builder">
+            Next
+            <!-- Phosphor Icons (Light): arrow-right — MIT -->
+            <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M220.24,132.24l-72,72a6,6,0,0,1-8.48-8.48L201.51,134H40a6,6,0,0,1,0-12H201.51L139.76,60.24a6,6,0,0,1,8.48-8.48l72,72A6,6,0,0,1,220.24,132.24Z"/></svg>
+          </a>
+        </nav>
+        <header class="page-head">
+          <h2 class="page-title" id="title-project-ai-search" tabindex="-1"><span class="page-eyebrow">Amazon Web Services</span> AI Search</h2>
+        </header>
+        <dl class="project-meta">
+          <div><dt>Date</dt><dd>Date placeholder</dd></div>
+          <div><dt>Role</dt><dd>Role placeholder</dd></div>
+        </dl>
+        <p class="project-desc">Project description placeholder. A short paragraph on the problem, the audience, what you designed and the outcome.</p>
+        <ol class="shots">
+          <li>
+            <figure class="shot">
+              <ul class="clips clips--stack clips--light">
+              <li>
+                <button class="clip" type="button" data-full="projects/ai-search/videos/1.mp4?v=1" aria-label="Expand clip 1: the 3D scene morphs between a forest, a city, a warehouse and more as example prompts cycle">
+                  <video class="project-video" src="projects/ai-search/videos/1-small.mp4?v=2" poster="projects/ai-search/videos/1.jpg?v=1" width="1280" height="732" muted playsinline preload="none" aria-hidden="true"></video>
+                  <span class="clip-icon" aria-hidden="true"><!-- Phosphor Icons (Light): arrows-out — MIT --><svg viewBox="0 0 256 256" fill="currentColor"><path d="M214,48V96a6,6,0,0,1-12,0V62.48l-45.76,45.76a6,6,0,0,1-8.48-8.48L193.52,54H160a6,6,0,0,1,0-12h48A6,6,0,0,1,214,48ZM99.76,147.76,54,193.52V160a6,6,0,0,0-12,0v48a6,6,0,0,0,6,6H96a6,6,0,0,0,0-12H62.48l45.76-45.76a6,6,0,0,0-8.48-8.48Z"/></svg></span>
+                </button>
+              </li>
+              <li>
+                <button class="clip" type="button" data-full="projects/ai-search/videos/2.mp4?v=1" aria-label="Expand clip 2: a prompt is submitted and AI Search starts understanding the request">
+                  <video class="project-video" src="projects/ai-search/videos/2-small.mp4?v=2" poster="projects/ai-search/videos/2.jpg?v=1" width="1280" height="732" muted playsinline preload="none" aria-hidden="true"></video>
+                  <span class="clip-icon" aria-hidden="true"><!-- Phosphor Icons (Light): arrows-out — MIT --><svg viewBox="0 0 256 256" fill="currentColor"><path d="M214,48V96a6,6,0,0,1-12,0V62.48l-45.76,45.76a6,6,0,0,1-8.48-8.48L193.52,54H160a6,6,0,0,1,0-12h48A6,6,0,0,1,214,48ZM99.76,147.76,54,193.52V160a6,6,0,0,0-12,0v48a6,6,0,0,0,6,6H96a6,6,0,0,0,0-12H62.48l45.76-45.76a6,6,0,0,0-8.48-8.48Z"/></svg></span>
+                </button>
+              </li>
+              </ul>
+              <figcaption>Caption placeholder for the clips.</figcaption>
+            </figure>
+          </li>
+          <li>
+            <ul class="shot-grid">
+              <li>
+                <figure class="shot">
+                  <img src="projects/ai-search/1.webp?v=1" alt="AI Search landing page: &quot;Empower customers with AI Search&quot; above a prompt to describe the search experience, over a wireframe 3D landscape of mountains and trees" width="2000" height="1199" loading="lazy" decoding="async">
+                  <figcaption>Caption placeholder for screenshot 1.</figcaption>
+                </figure>
+              </li>
+              <li>
+                <figure class="shot">
+                  <img src="projects/ai-search/3.webp?v=1" alt="Prompt for a store locator within my current location, over a wireframe 3D city street" width="2000" height="1199" loading="lazy" decoding="async">
+                  <figcaption>Caption placeholder for screenshot 2.</figcaption>
+                </figure>
+              </li>
+              <li>
+                <figure class="shot">
+                  <img src="projects/ai-search/4.webp?v=1" alt="Prompt for tracking exact available inventory, over a wireframe 3D warehouse of shelves" width="2000" height="1199" loading="lazy" decoding="async">
+                  <figcaption>Caption placeholder for screenshot 3.</figcaption>
+                </figure>
+              </li>
+              <li>
+                <figure class="shot">
+                  <img src="projects/ai-search/5.webp?v=1" alt="Prompt for finding specialty stores in a vast marketplace, over a wireframe 3D market hall" width="2000" height="1199" loading="lazy" decoding="async">
+                  <figcaption>Caption placeholder for screenshot 4.</figcaption>
+                </figure>
+              </li>
+            </ul>
+          </li>
+        </ol>
+      </div>
+    </section>
+
     <!-- ===== project: OUI Builder ===== -->
     <section class="page page--project" id="page-project-oui-builder" data-page="projects/oui-builder" aria-labelledby="title-project-oui-builder">
       <div class="page-inner">
@@ -2152,7 +2148,7 @@
     }
 
     let sims = [], trails = [], simW = 0, simH = 0, aspect = 1, textReady = false;
-    let light = document.documentElement.dataset.theme === 'light' ? 1 : 0;
+    let light = 0;
     let leak = 0;
     // intro: tween uForm 0 -> 1 on first load (only if the page flagged it)
     const intro = { k: document.documentElement.classList.contains('intro') ? 0 : 1, start: 0 };
@@ -2355,8 +2351,14 @@
       // oil (or nothing at all, once it's fully peeled away)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.viewport(0, 0, canvas.width, canvas.height);
-      // ease the theme toward the page's current theme (even while hidden)
-      const lightTarget = document.documentElement.dataset.theme === 'light' ? 1 : 0;
+      // the oil is the home screen, so it stays dark while it peels and
+      // returns; only the strip left on a fully open inner page goes light
+      const onPage = document.body.classList.contains('on-page');
+      const lightTarget = onPage && rv.value >= 1 ? 1 : 0;
+      // the logo and nav switch to plum text just as the page reaches them
+      const chrome = onPage && rv.value >= 0.9 ? 'light' : 'dark';
+      if (document.documentElement.dataset.theme !== chrome) document.documentElement.dataset.theme = chrome;
+      if (!lightTarget) light = 0;
       light += (lightTarget - light) * Math.min(1, dt * 6);
       if (Math.abs(lightTarget - light) < 0.001) light = lightTarget;
 
@@ -2761,20 +2763,21 @@
       return { shade, swipe };
     })();
 
-    // ---- light / dark toggle (saved; the shader eases to match) ----------
-    const themeBtn = document.querySelector('.theme-toggle');
-    function syncThemeBtn() {
-      const light = document.documentElement.dataset.theme === 'light';
-      themeBtn.setAttribute('aria-label', light ? 'Switch to dark mode' : 'Switch to light mode');
+    // ---- chrome palette follows the route: light (plum text) once an inner
+    // page has been revealed, dark (cream text) as soon as we head home.
+    // With WebGL the oil loop sets it from the reveal progress instead.
+    {
+      const allPages = document.querySelectorAll('.page');
+      const syncTheme = () => {
+        if (document.body.classList.contains('gl-on')) return; // the oil loop times it
+        const light = document.body.classList.contains('on-page') &&
+          [...allPages].some(p => p.classList.contains('is-shown'));
+        document.documentElement.dataset.theme = light ? 'light' : 'dark';
+      };
+      const mo = new MutationObserver(syncTheme);
+      allPages.forEach(p => mo.observe(p, { attributes: true, attributeFilter: ['class'] }));
+      mo.observe(document.body, { attributes: true, attributeFilter: ['class'] });
     }
-    themeBtn.addEventListener('click', () => {
-      const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
-      document.documentElement.dataset.theme = next;
-      try { localStorage.setItem('theme', next); } catch (e) {}
-      syncThemeBtn();
-      sfx.swipe();
-    });
-    syncThemeBtn();
 
     function show(next, instant) {
       const fx = window.oilFx;
